@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DINKIssTyle Name Tag Maker</title>
+    
+  <script type="module" crossorigin src="/assets/index.242b1591.js"></script>
+  <link rel="stylesheet" href="/assets/index.d9c1eaa0.css">
+</head>
+
+<body>
+    <div id="app">
+        <header id="main-header">
+            <div class="logo-space">DKST Name Tag Maker</div>
+            <div class="actions">
+                <button id="btn-import-csv" class="icon-button icon-only-button" data-tooltip-key="CSV 가져오기" aria-label="CSV 가져오기">
+                    <span class="material-symbols-outlined" aria-hidden="true">csv</span>
+                </button>
+                <button id="btn-spreadsheet" class="icon-button icon-only-button" data-tooltip-key="스프레드시트" aria-label="스프레드시트">
+                    <span class="material-symbols-outlined" aria-hidden="true">table_edit</span>
+                </button>
+                <button id="btn-select-bg" class="icon-button icon-only-button" data-tooltip-key="배경 이미지" aria-label="배경 이미지">
+                    <span class="material-symbols-outlined" aria-hidden="true">wallpaper</span>
+                </button>
+                <button id="btn-clear-bg" class="icon-button icon-only-button" data-tooltip-key="배경 지우기" aria-label="배경 지우기">
+                    <span class="material-symbols-outlined" aria-hidden="true">clear_all</span>
+                </button>
+                <button id="btn-load-project" class="icon-button icon-only-button" data-tooltip-key="프로젝트 열기" aria-label="프로젝트 열기">
+                    <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+                </button>
+                <button id="btn-save-project" class="icon-button icon-only-button" data-tooltip-key="프로젝트 저장" aria-label="프로젝트 저장">
+                    <span class="material-symbols-outlined" aria-hidden="true">save</span>
+                </button>
+                <button id="btn-preview" class="icon-button icon-only-button" data-tooltip-key="미리보기" aria-label="미리보기">
+                    <span class="material-symbols-outlined" aria-hidden="true">preview</span>
+                </button>
+                <button id="btn-save-pdf" class="btn-primary icon-button icon-only-button" data-tooltip-key="PDF 저장" aria-label="PDF 저장">
+                    <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
+                </button>
+            </div>
+            <div class="spacer"></div>
+            <div class="lang-selector">
+                <select id="lang-select">
+                    <option value="ko">한국어 (KOREAN)</option>
+                    <option value="en">English (영어)</option>
+                </select>
+            </div>
+            <button id="btn-about" class="icon-button icon-only-button" style="margin-left: 10px;" data-tooltip-key="정보" aria-label="정보">
+                <span class="material-symbols-outlined" aria-hidden="true">info</span>
+            </button>
+        </header>
+        <div id="main-content">
+            <aside id="sidebar">
+                <!-- 용지 / 네임태그 설정 -->
+                <fieldset class="panel" id="paper-settings">
+                    <legend data-t="용지 / 네임태그 설정">용지 / 네임태그 설정</legend>
+                    <div class="setting-row">
+                        <label data-t="단위:">단위:</label>
+                        <label><input type="radio" name="unit" value="mm" checked> mm</label>
+                        <label><input type="radio" name="unit" value="inch"> inch</label>
+                    </div>
+
+                    <div class="flattened-grid">
+                        <!-- 용지 -->
+                        <label class="prop-label" data-t="용지:">용지:</label>
+                        <select id="paper-preset" class="span-5">
+                            <option value="A4">A4</option>
+                            <option value="A3">A3</option>
+                            <option value="Custom" data-t="사용자 정의">사용자 정의</option>
+                        </select>
+
+                        <!-- 용지 크기 -->
+                        <label class="prop-label" data-t="용지 크기:">용지 크기:</label>
+                        <input type="number" id="paper-width" value="210.0" step="0.1">
+                        <span class="unit">mm</span>
+                        <span class="sep">×</span>
+                        <input type="number" id="paper-height" value="297.0" step="0.1">
+                        <span class="unit">mm</span>
+
+                        <!-- 태그 크기 -->
+                        <label class="prop-label" data-t="태그 크기:">태그 크기:</label>
+                        <input type="number" id="tag-width" value="90.0" step="0.1">
+                        <span class="unit">mm</span>
+                        <span class="sep">×</span>
+                        <input type="number" id="tag-height" value="54.0" step="0.1">
+                        <span class="unit">mm</span>
+
+                        <!-- 배열 (열/행) -->
+                        <label class="prop-label" data-t="열:">열:</label>
+                        <input type="number" id="cols" value="2" step="1">
+                        <span class="unit"></span>
+                        <label class="prop-label" data-t="행:">행:</label>
+                        <input type="number" id="rows" value="5" step="1">
+                        <span class="unit"></span>
+
+                        <!-- 여백 -->
+                        <label class="prop-label" data-t="여백X:">여백X:</label>
+                        <input type="number" id="offset-x" value="15.0" step="0.1">
+                        <span class="unit">mm</span>
+                        <label class="prop-label" data-t="Y:">Y:</label>
+                        <input type="number" id="offset-y" value="13.5" step="0.1">
+                        <span class="unit">mm</span>
+
+                        <!-- 간격 -->
+                        <label class="prop-label" data-t="간격X:">간격X:</label>
+                        <input type="number" id="gap-x" value="0.0" step="0.1">
+                        <span class="unit">mm</span>
+                        <label class="prop-label" data-t="Y:">Y:</label>
+                        <input type="number" id="gap-y" value="0.0" step="0.1">
+                        <span class="unit">mm</span>
+                    </div>
+                </fieldset>
+
+                <!-- 텍스트 박스 설정 -->
+                <fieldset class="panel" id="textbox-panel">
+                    <legend data-t="텍스트 박스">텍스트 박스</legend>
+                    <div class="toolbar">
+                        <button id="btn-add-tb">+</button>
+                        <button id="btn-del-tb">−</button>
+                        <div class="spacer"></div>
+                        <button id="btn-up-tb">▲</button>
+                        <button id="btn-down-tb">▼</button>
+                    </div>
+
+                    <select id="textbox-list" size="5"></select>
+
+                    <fieldset class="sub-panel">
+                        <legend data-t="속성">속성</legend>
+                        <div class="flattened-grid">
+                            <label class="prop-label" data-t="라벨:">라벨:</label>
+                            <input type="text" id="tb-label" class="span-5">
+
+                            <label class="prop-label">X:</label>
+                            <input type="number" id="tb-x" step="0.1">
+                            <span class="unit">mm</span>
+                            <label class="prop-label">Y:</label>
+                            <input type="number" id="tb-y" step="0.1">
+                            <span class="unit">mm</span>
+
+                            <label class="prop-label" data-t="너비:">너비:</label>
+                            <input type="number" id="tb-w" step="0.1">
+                            <span class="unit">mm</span>
+                            <label class="prop-label" data-t="높이:">높이:</label>
+                            <input type="number" id="tb-h" step="0.1">
+                            <span class="unit">mm</span>
+
+                            <label class="prop-label" data-t="폰트:">폰트:</label>
+                            <select id="tb-font" class="span-5"></select>
+
+                            <label class="prop-label" data-t="크기:">크기:</label>
+                            <input type="number" id="tb-size" step="0.1">
+                            <span class="unit">pt</span>
+                            <label class="prop-label" data-t="정렬:">정렬:</label>
+                            <select id="tb-align" class="span-2">
+                                <option value="left" data-t="왼쪽">왼쪽</option>
+                                <option value="center" data-t="중앙" selected>중앙</option>
+                                <option value="right" data-t="오른쪽">오른쪽</option>
+                            </select>
+
+                            <label class="prop-label" data-t="줄간격:">줄간격:</label>
+                            <input type="number" id="tb-line" step="0.1">
+                            <span class="unit" data-t="배">배</span>
+                            <label class="prop-label" data-t="자간:">자간:</label>
+                            <input type="number" id="tb-letter" step="0.1">
+                            <span class="unit">pt</span>
+
+                            <label class="prop-label" data-t="색상:">색상:</label>
+                            <div class="color-tools span-5">
+                                <input type="color" id="tb-color">
+                                <label><input type="checkbox" id="tb-bold"> B</label>
+                                <label><input type="checkbox" id="tb-italic"> I</label>
+                            </div>
+                        </div>
+                    </fieldset>
+                </fieldset>
+            </aside>
+            <main id="preview-area" style="position: relative;">
+                <canvas id="preview-canvas"></canvas>
+                <div class="zoom-controls">
+                    <button id="btn-zoom-fit" class="icon-button icon-only-button" data-tooltip-key="Fit" aria-label="맞춤">
+                        <span class="material-symbols-outlined" aria-hidden="true">fit_screen</span>
+                    </button>
+                    <button id="btn-zoom-out">-</button>
+                    <span id="zoom-label">100%</span>
+                    <button id="btn-zoom-in">+</button>
+                    <button id="btn-zoom-100">100%</button>
+                </div>
+            </main>
+        </div>
+
+        <!-- Spreadsheet Modal -->
+        <div id="spreadsheet-modal" class="modal hidden">
+            <div class="modal-content large">
+                <div class="modal-header">
+                    <h2 data-t="스프레드시트 데이터 입력">스프레드시트 데이터 입력</h2>
+                    <button class="btn-close" id="btn-close-spreadsheet">×</button>
+                </div>
+                <p class="modal-hint" data-t="SS_HINT">엑셀이나 구글 시트에서 데이터를 복사(Ctrl+C)한 후, 아래 표에 붙여넣기(Ctrl+V) 하세요.</p>
+                <div class="modal-toolbar">
+                    <button id="btn-ss-add-row" class="icon-button">
+                        <span class="material-symbols-outlined" aria-hidden="true">add_row_below</span>
+                        <span data-t="+ 행 추가">+ 행 추가</span>
+                    </button>
+                    <button id="btn-ss-del-row" class="icon-button">
+                        <span class="material-symbols-outlined" aria-hidden="true">variable_remove</span>
+                        <span data-t="- 행 삭제">- 행 삭제</span>
+                    </button>
+                    <button id="btn-ss-export" class="icon-button">
+                        <span class="material-symbols-outlined" aria-hidden="true">ios_share</span>
+                        <span data-t="CSV 내보내기">CSV 내보내기</span>
+                    </button>
+                    <button id="btn-ss-select-all" class="icon-button">
+                        <span class="material-symbols-outlined" aria-hidden="true">select_all</span>
+                        <span data-t="전체 선택">전체 선택</span>
+                    </button>
+                    <button id="btn-ss-clear-all" class="icon-button">
+                        <span class="material-symbols-outlined" aria-hidden="true">deselect</span>
+                        <span data-t="전체 해제">전체 해제</span>
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table id="spreadsheet-table">
+                        <thead>
+                            <tr id="ss-header-row">
+                                <th style="width: 40px;" data-t="체크">체크</th>
+                                <!-- Headers will be added dynamically -->
+                            </tr>
+                        </thead>
+                        <tbody id="ss-body">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-ss-apply" class="btn-primary" data-t="적용">적용</button>
+                    <button id="btn-ss-cancel" data-t="취소">취소</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Modal -->
+        <div id="about-modal" class="modal hidden">
+            <div class="modal-content" style="text-align: center; max-width: 320px; padding: 20px;">
+                <div class="modal-header">
+                    <h2 data-t="정보">정보</h2>
+                    <button class="btn-close" id="btn-close-about">×</button>
+                </div>
+                <div style="padding: 20px 10px;">
+                    <img src="/assets/appicon.87a3e491.png" alt="App Icon"
+                        style="width: 80px; height: auto; margin-bottom: 15px;">
+                    <h3 style="margin: 0 0 10px 0; padding: 0; font-size: 1.2em;">DKST Name Tag Maker</h3>
+                    <p style="margin: 5px 0; color: #ccc;">Version <span id="about-version">1.0</span> (<span
+                            id="about-build-date"></span>)</p>
+                    <p style="margin: 5px 0; font-size: 0.85em; color: #888;">2026 (C) DINKI'ssTyle</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preview Modal -->
+        <div id="preview-modal" class="modal hidden">
+            <div class="modal-content large">
+                <div class="modal-header">
+                    <h2 data-t="인쇄 미리보기">인쇄 미리보기</h2>
+                    <button class="btn-close" id="btn-close-preview">×</button>
+                </div>
+                <div class="modal-toolbar" style="justify-content: center;">
+                    <button id="btn-prev-page" data-t="◀ 이전">◀ 이전</button>
+                    <span id="preview-page-label" style="align-self: center; margin: 0 16px;">1 / 1</span>
+                    <button id="btn-next-page" data-t="다음 ▶">다음 ▶</button>
+                </div>
+                <div class="table-container"
+                    style="background: #1a1a1a; display: flex; justify-content: center; align-items: flex-start; padding: 20px;">
+                    <canvas id="print-preview-canvas"
+                        style="background: white; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Custom Alert Toast (must be outside #app and all modals) -->
+    <div id="alert-toast" class="hidden"></div>
+    <div id="icon-popover" class="icon-popover hidden" role="tooltip"></div>
+    
+</body>
+
+</html>

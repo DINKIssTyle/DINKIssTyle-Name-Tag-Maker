@@ -1,0 +1,132 @@
+/* Created by DINKIssTyle on 2026. */
+/* Copyright (C) 2026 DINKI'ssTyle. All rights reserved. */
+
+/* 전역 폰트 및 배경 */
+QWidget {
+    font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+    font-size: 9pt;
+    background-color: #fafafa;
+    color: #333;
+}
+
+/* 그룹 박스 스타일 */
+QGroupBox {
+    font-weight: bold;
+    border: 1px solid #dcdcdc;
+    border-radius: 4px;
+    margin-top: 6px;
+    padding-top: 4px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 10px;
+    padding: 0 3px;
+    color: #555;
+}
+
+/* 입력 필드 및 스핀박스 */
+QLineEdit, QDoubleSpinBox, QSpinBox, QComboBox, QFontComboBox {
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    padding: 2px 4px;
+    background: #ffffff;
+    min-height: 20px;
+}
+
+QLineEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus, QComboBox:focus {
+    border: 1px solid #0078d7;
+    background: #fdfdfd;
+}
+
+/* 버튼 스타일 */
+QPushButton {
+    background-color: #f5f5f5;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    padding: 2px 6px;
+    min-width: 40px;
+}
+
+QPushButton:hover {
+    background-color: #e5e5e5;
+    border-color: #bbb;
+}
+
+QPushButton:pressed {
+    background-color: #d5d5d5;
+}
+
+/* 리스트 위젯 */
+QListWidget {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+}
+
+QListWidget::item {
+    padding: 5px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+QListWidget::item:selected {
+    background-color: #0078d7;
+    color: white;
+}
+
+/* 속성 라벨 (좌측 제목) */
+QLabel#prop_label {
+    color: #333;
+    font-weight: 600;
+    font-size: 8.5pt;
+    min-width: 50px;
+    qproperty-alignment: 'AlignRight | AlignVCenter';
+    padding-right: 4px;
+}
+
+/* 유닛 라벨 (입력창 우측 mm, pt 등) */
+QLabel#unit_label {
+    color: #888;
+    font-size: 8pt;
+    font-weight: normal;
+    padding-left: 2px;
+}
+
+/* 툴바 스타일 */
+QToolBar {
+    background: #ffffff;
+    border-bottom: 1px solid #e0e0e0;
+    spacing: 12px;
+    padding: 6px;
+}
+
+QToolBar QToolButton {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-weight: 500;
+}
+
+QToolBar QToolButton:hover {
+    background: #f0f0f0;
+}
+
+/* 스플리터 스타일 */
+QSplitter::handle {
+    background-color: #dcdcdc;
+}
+
+QSplitter::handle:horizontal {
+    width: 1px;
+}
+
+/* 사이드바 위젯 */
+QWidget#sidebar {
+    background-color: #fafafa;
+}
+
+QScrollArea {
+    border: none;
+}
