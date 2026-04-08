@@ -75,21 +75,21 @@ wails dev
 
 **macOS:**
 ```bash
-./build_mac.sh
+./build-macOS.sh
 # 또는 직접 실행
 wails build -platform darwin/universal -clean
 ```
 
 **Windows:**
 ```cmd
-build_windows.bat
+build-Windows.bat
 # 또는 직접 실행
 wails build -platform windows/amd64 -clean
 ```
 
 **Linux (Ubuntu):**
 ```bash
-./build_ubuntu.sh
+./build-Linux.sh
 # 또는 직접 실행
 wails build -platform linux/amd64 -clean
 ```

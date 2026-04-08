@@ -6,7 +6,7 @@ echo     윈도우(Windows)용 빌드를 시작합니다.
 echo ======================================
 
 REM clean 옵션과 함께 윈도우 amd64 바이너리 빌드 수행
-wails build -platform windows/amd64 -clean
+wails build -platform windows/amd64 -clean -o "DKST Name Tag Maker.exe"
 
 if %ERRORLEVEL% EQU 0 (
     echo ======================================

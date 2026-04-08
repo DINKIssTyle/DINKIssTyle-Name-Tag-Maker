@@ -1,11 +1,17 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
   "name": "DKST Name Tag Maker",
-  "outputfilename": "Go",
+  "outputfilename": "DKST Name Tag Maker",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
+  "bundleid": "com.dinkisstyle.nametagmaker",
+  "info": {
+    "productName": "DKST Name Tag Maker",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright (C) 2026 DINKI'ssTyle. All rights reserved."
+  },
   "author": {
     "name": "DINKIssTyle",
     "email": "162435433+DINKIssTyle@users.noreply.github.com"
