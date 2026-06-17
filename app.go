@@ -75,9 +75,40 @@ func (a *App) GetDefaultTagTemplate() models.TagTemplate {
 // --- App Info ---
 
 func (a *App) GetAppInfo() map[string]string {
+	version := "1.0"
+	buildDate := "2026-02-27"
+	copyrightYear := "2026"
+
+	// Read app.config from the root directory
+	data, err := os.ReadFile("app.config")
+	if err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				val := strings.TrimSpace(parts[1])
+				val = strings.Trim(val, "\"`")
+				switch key {
+				case "version":
+					version = val
+				case "buildDate":
+					buildDate = val
+				case "copyrightYear":
+					copyrightYear = val
+				}
+			}
+		}
+	}
+
 	return map[string]string{
-		"version":   "1.0",
-		"buildDate": "2026-02-27",
+		"version":       version,
+		"buildDate":     buildDate,
+		"copyrightYear": copyrightYear,
 	}
 }
 

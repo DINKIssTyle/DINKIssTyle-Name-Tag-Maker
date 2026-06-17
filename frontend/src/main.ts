@@ -579,6 +579,7 @@ function setupEventListeners() {
             const info = await GetAppInfo();
             document.getElementById('about-version')!.textContent = info.version || "1.0";
             document.getElementById('about-build-date')!.textContent = info.buildDate || "Unknown";
+            document.getElementById('about-copyright-year')!.textContent = info.copyrightYear || "2026";
         } catch (e) {
             console.error("Failed to get app info", e);
         }
