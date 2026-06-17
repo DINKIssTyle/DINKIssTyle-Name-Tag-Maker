@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image/color"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -208,16 +209,29 @@ func hexToRGBA(hex string) color.RGBA {
 	return color.RGBA{0, 0, 0, 255}
 }
 
-func (a *App) SavePDF(data models.ProjectData) (string, error) {
-	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           "PDF로 저장",
-		Filters:         []runtime.FileFilter{{DisplayName: "PDF 파일 (*.pdf)", Pattern: "*.pdf"}},
-		DefaultFilename: "output.pdf",
-	})
-	if err != nil || filePath == "" {
-		return "", err
+func drawPageGridLines(pdf *gopdf.GoPdf, data models.ProjectData) {
+	mmToPt := 2.83464
+	pdf.SetLineWidth(0.5)
+	pdf.SetStrokeColor(180, 180, 180)
+
+	// Draw horizontal lines across the entire page width
+	for r := 0; r < data.Layout.Rows; r++ {
+		y1 := data.Layout.OffsetYMM + float64(r)*(data.Layout.TagHeightMM+data.Layout.GapYMM)
+		y2 := y1 + data.Layout.TagHeightMM
+		pdf.Line(0, y1*mmToPt, data.Paper.WidthMM*mmToPt, y1*mmToPt)
+		pdf.Line(0, y2*mmToPt, data.Paper.WidthMM*mmToPt, y2*mmToPt)
 	}
 
+	// Draw vertical lines across the entire page height
+	for c := 0; c < data.Layout.Columns; c++ {
+		x1 := data.Layout.OffsetXMM + float64(c)*(data.Layout.TagWidthMM+data.Layout.GapXMM)
+		x2 := x1 + data.Layout.TagWidthMM
+		pdf.Line(x1*mmToPt, 0, x1*mmToPt, data.Paper.HeightMM*mmToPt)
+		pdf.Line(x2*mmToPt, 0, x2*mmToPt, data.Paper.HeightMM*mmToPt)
+	}
+}
+
+func (a *App) buildPDF(filePath string, data models.ProjectData) error {
 	pdf := gopdf.GoPdf{}
 	mmToPt := 2.83464
 	pdf.Start(gopdf.Config{
@@ -229,7 +243,7 @@ func (a *App) SavePDF(data models.ProjectData) (string, error) {
 
 	totalTagsPerPage := data.Layout.Columns * data.Layout.Rows
 	if totalTagsPerPage <= 0 {
-		return "", fmt.Errorf("invalid layout")
+		return fmt.Errorf("invalid layout")
 	}
 
 	for i, entry := range data.Entries {
@@ -240,6 +254,9 @@ func (a *App) SavePDF(data models.ProjectData) (string, error) {
 		tagIndexOnPage := i % totalTagsPerPage
 		if tagIndexOnPage == 0 {
 			pdf.AddPage()
+			if data.Layout.ShowCuttingLines {
+				drawPageGridLines(&pdf, data)
+			}
 		}
 
 		col := tagIndexOnPage % data.Layout.Columns
@@ -253,6 +270,13 @@ func (a *App) SavePDF(data models.ProjectData) (string, error) {
 				W: data.Layout.TagWidthMM * mmToPt,
 				H: data.Layout.TagHeightMM * mmToPt,
 			})
+		}
+
+		// Draw cutting lines (칼선) - 0.5pt light gray border on top of the image
+		if data.Layout.ShowCuttingLines {
+			pdf.SetLineWidth(0.5)
+			pdf.SetStrokeColor(180, 180, 180)
+			pdf.Rectangle(tagX*mmToPt, tagY*mmToPt, (tagX+data.Layout.TagWidthMM)*mmToPt, (tagY+data.Layout.TagHeightMM)*mmToPt, "D", 0, 0)
 		}
 
 		for _, tb := range data.Template.TextBoxes {
@@ -299,7 +323,7 @@ func (a *App) SavePDF(data models.ProjectData) (string, error) {
 			}
 
 			if fontPath != "" {
-				err = pdf.AddTTFFont(fontName, fontPath)
+				err := pdf.AddTTFFont(fontName, fontPath)
 				if err != nil {
 					fontName = "Arial" // fallback
 				}
@@ -332,6 +356,36 @@ func (a *App) SavePDF(data models.ProjectData) (string, error) {
 		}
 	}
 
-	err = pdf.WritePdf(filePath)
+	return pdf.WritePdf(filePath)
+}
+
+func (a *App) SavePDF(data models.ProjectData) (string, error) {
+	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "PDF로 저장",
+		Filters:         []runtime.FileFilter{{DisplayName: "PDF 파일 (*.pdf)", Pattern: "*.pdf"}},
+		DefaultFilename: "output.pdf",
+	})
+	if err != nil || filePath == "" {
+		return "", err
+	}
+
+	err = a.buildPDF(filePath, data)
 	return filePath, err
 }
+
+// Print triggers the native system print dialog for the webview window
+func (a *App) Print() {
+	runtime.WindowPrint(a.ctx)
+}
+
+// PrintProject generates a temporary PDF and triggers native system printing
+func (a *App) PrintProject(data models.ProjectData) error {
+	tempFile := filepath.Join(os.TempDir(), "dkst_print_temp.pdf")
+	err := a.buildPDF(tempFile, data)
+	if err != nil {
+		return err
+	}
+	PrintPDF(tempFile)
+	return nil
+}
+

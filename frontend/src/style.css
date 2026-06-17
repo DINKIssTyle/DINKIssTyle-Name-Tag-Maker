@@ -125,6 +125,20 @@ body {
     background: #0086f0;
 }
 
+.actions button.quick-print-btn {
+    background-color: #ff3b30 !important;
+    border-color: #e0241b !important;
+    color: #ffcc00 !important;
+}
+
+.actions button.quick-print-btn:hover {
+    background-color: #ff453a !important;
+}
+
+.actions button.quick-print-btn .material-symbols-outlined {
+    color: #ffcc00 !important;
+}
+
 #main-content {
     display: flex;
     flex: 1;
@@ -443,26 +457,31 @@ input[type="color"] {
     padding: 0;
 }
 
-#spreadsheet-table {
+#spreadsheet-table,
+#quick-print-table {
     width: 100%;
     border-collapse: collapse;
 }
 
 #spreadsheet-table th,
-#spreadsheet-table td {
+#spreadsheet-table td,
+#quick-print-table th,
+#quick-print-table td {
     border: 1px solid #3c3c3c;
     padding: 4px;
     text-align: center;
 }
 
-#spreadsheet-table th {
+#spreadsheet-table th,
+#quick-print-table th {
     background: #252525;
     position: sticky;
     top: 0;
     z-index: 1;
 }
 
-#spreadsheet-table input[type="text"] {
+#spreadsheet-table input[type="text"],
+#quick-print-table input[type="text"] {
     width: 100%;
     box-sizing: border-box;
     background: transparent;
@@ -471,9 +490,20 @@ input[type="color"] {
     text-align: center;
 }
 
-#spreadsheet-table input[type="text"]:focus {
+#spreadsheet-table input[type="text"]:focus,
+#quick-print-table input[type="text"]:focus {
     outline: 1px solid #0078d4;
     background: #1a1a1a;
+}
+
+/* Quick print input alignment helper */
+.qp-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    color: white;
+    text-align: center;
 }
 
 .modal-footer {
@@ -522,3 +552,31 @@ input[type="color"] {
     text-align: center;
     max-width: 80%;
 }
+
+#print-section {
+    display: none;
+}
+
+@media print {
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    #app {
+        display: none !important;
+    }
+    #print-section {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+    }
+    #print-section canvas {
+        page-break-after: always;
+        display: block;
+        box-shadow: none !important;
+    }
+}
+

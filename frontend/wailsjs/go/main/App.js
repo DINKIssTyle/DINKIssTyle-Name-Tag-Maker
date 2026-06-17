@@ -34,6 +34,14 @@ export function LoadProject() {
   return window['go']['main']['App']['LoadProject']();
 }
 
+export function Print() {
+  return window['go']['main']['App']['Print']();
+}
+
+export function PrintProject(arg1) {
+  return window['go']['main']['App']['PrintProject'](arg1);
+}
+
 export function SavePDF(arg1) {
   return window['go']['main']['App']['SavePDF'](arg1);
 }

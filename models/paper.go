@@ -42,25 +42,27 @@ func PaperSizeFromPreset(name string) PaperSize {
 
 // TagLayout 네임태그 레이아웃 설정
 type TagLayout struct {
-	TagWidthMM  float64 `json:"tag_width_mm"`
-	TagHeightMM float64 `json:"tag_height_mm"`
-	Columns     int     `json:"columns"`
-	Rows        int     `json:"rows"`
-	OffsetXMM   float64 `json:"offset_x_mm"`
-	OffsetYMM   float64 `json:"offset_y_mm"`
-	GapXMM      float64 `json:"gap_x_mm"`
-	GapYMM      float64 `json:"gap_y_mm"`
+	TagWidthMM       float64 `json:"tag_width_mm"`
+	TagHeightMM      float64 `json:"tag_height_mm"`
+	Columns          int     `json:"columns"`
+	Rows             int     `json:"rows"`
+	OffsetXMM        float64 `json:"offset_x_mm"`
+	OffsetYMM        float64 `json:"offset_y_mm"`
+	GapXMM           float64 `json:"gap_x_mm"`
+	GapYMM           float64 `json:"gap_y_mm"`
+	ShowCuttingLines bool    `json:"show_cutting_lines"`
 }
 
 func DefaultTagLayout() TagLayout {
 	return TagLayout{
-		TagWidthMM:  90.0,
-		TagHeightMM: 54.0,
-		Columns:     2,
-		Rows:        5,
-		OffsetXMM:   15.0,
-		OffsetYMM:   13.5,
-		GapXMM:      0.0,
-		GapYMM:      0.0,
+		TagWidthMM:       90.0,
+		TagHeightMM:      54.0,
+		Columns:          2,
+		Rows:             5,
+		OffsetXMM:        15.0,
+		OffsetYMM:        13.5,
+		GapXMM:           0.0,
+		GapYMM:           0.0,
+		ShowCuttingLines: false,
 	}
 }

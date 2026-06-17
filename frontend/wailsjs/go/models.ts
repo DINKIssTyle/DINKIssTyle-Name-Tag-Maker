@@ -121,6 +121,7 @@ export namespace models {
 	    offset_y_mm: number;
 	    gap_x_mm: number;
 	    gap_y_mm: number;
+	    show_cutting_lines: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new TagLayout(source);
@@ -136,6 +137,7 @@ export namespace models {
 	        this.offset_y_mm = source["offset_y_mm"];
 	        this.gap_x_mm = source["gap_x_mm"];
 	        this.gap_y_mm = source["gap_y_mm"];
+	        this.show_cutting_lines = source["show_cutting_lines"];
 	    }
 	}
 	export class ProjectData {

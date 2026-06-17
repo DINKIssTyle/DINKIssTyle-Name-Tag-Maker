@@ -19,6 +19,10 @@ export function ImportCSV():Promise<models.CSVResult>;
 
 export function LoadProject():Promise<models.ProjectData>;
 
+export function Print():Promise<void>;
+
+export function PrintProject(arg1:models.ProjectData):Promise<void>;
+
 export function SavePDF(arg1:models.ProjectData):Promise<string>;
 
 export function SaveProject(arg1:models.ProjectData):Promise<string>;

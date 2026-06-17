@@ -13,7 +13,8 @@ import {
     SavePDF,
     GetSystemFonts,
     ExportCSV,
-    GetAppInfo
+    GetAppInfo,
+    PrintProject
 } from '../wailsjs/go/main/App';
 import { PreviewRenderer } from './canvas';
 import { LogInfo } from '../wailsjs/runtime/runtime';
@@ -70,7 +71,17 @@ const translations: any = {
         "Fit": "맞춤",
         "선택된 데이터가 없습니다.": "선택된 데이터가 없습니다.",
         "PDF가 저장되었습니다:": "PDF가 저장되었습니다:",
-        "정보": "정보"
+        "정보": "정보",
+        "인쇄": "인쇄",
+        "빠른 입력 인쇄": "빠른 입력 인쇄",
+        "빠른 인쇄 데이터 입력": "빠른 인쇄 데이터 입력",
+        "인쇄 & 추가": "인쇄 & 추가",
+        "QP_HINT": "현장에서 이름표를 즉석에서 추가하여 인쇄합니다. 인쇄와 동시에 스프레드시트 목록에 자동으로 저장됩니다.",
+        "방향:": "방향:",
+        "세로 (Portrait)": "세로 (Portrait)",
+        "가로 (Landscape)": "가로 (Landscape)",
+        "칼선 인쇄:": "칼선 인쇄:",
+        "인쇄 시 칼선 출력": "인쇄 시 칼선 출력"
     },
     en: {
         "CSV 가져오기": "Import CSV",
@@ -124,7 +135,17 @@ const translations: any = {
         "공통": "Common",
         "선택된 데이터가 없습니다.": "No data selected.",
         "PDF가 저장되었습니다:": "PDF saved to:",
-        "정보": "About"
+        "정보": "About",
+        "인쇄": "Print",
+        "빠른 입력 인쇄": "Quick Print",
+        "빠른 인쇄 데이터 입력": "Quick Print Entry",
+        "인쇄 & 추가": "Print & Add",
+        "QP_HINT": "Directly enter and print name tags on-site. Printed items are automatically saved to the spreadsheet database.",
+        "방향:": "Orient:",
+        "세로 (Portrait)": "Portrait",
+        "가로 (Landscape)": "Landscape",
+        "칼선 인쇄:": "Cut Lines:",
+        "인쇄 시 칼선 출력": "Print Cutting Lines"
     }
 };
 
@@ -310,6 +331,68 @@ function populateFontDropdown(fonts: any[]) {
     });
 }
 
+function validateLayoutLimits(): boolean {
+    if (!currentPaperSize || !currentTagLayout) return false;
+
+    const pageWidth = currentPaperSize.width_mm;
+    const pageHeight = currentPaperSize.height_mm;
+    const tagWidth = currentTagLayout.tag_width_mm;
+    const tagHeight = currentTagLayout.tag_height_mm;
+    const offsetX = currentTagLayout.offset_x_mm;
+    const offsetY = currentTagLayout.offset_y_mm;
+    const gapX = currentTagLayout.gap_x_mm;
+    const gapY = currentTagLayout.gap_y_mm;
+
+    const divX = tagWidth + gapX;
+    const divY = tagHeight + gapY;
+
+    let maxCols = 1;
+    if (divX > 0) {
+        maxCols = Math.max(1, Math.floor((pageWidth - offsetX + gapX) / divX));
+    }
+
+    let maxRows = 1;
+    if (divY > 0) {
+        maxRows = Math.max(1, Math.floor((pageHeight - offsetY + gapY) / divY));
+    }
+
+    const colsInput = document.getElementById('cols') as HTMLInputElement;
+    const rowsInput = document.getElementById('rows') as HTMLInputElement;
+    if (colsInput) {
+        colsInput.max = maxCols.toString();
+        colsInput.min = "1";
+    }
+    if (rowsInput) {
+        rowsInput.max = maxRows.toString();
+        rowsInput.min = "1";
+    }
+
+    let adjusted = false;
+    if (currentTagLayout.columns > maxCols) {
+        currentTagLayout.columns = maxCols;
+        if (colsInput) colsInput.value = maxCols.toString();
+        adjusted = true;
+    }
+    if (currentTagLayout.columns < 1) {
+        currentTagLayout.columns = 1;
+        if (colsInput) colsInput.value = "1";
+        adjusted = true;
+    }
+
+    if (currentTagLayout.rows > maxRows) {
+        currentTagLayout.rows = maxRows;
+        if (rowsInput) rowsInput.value = maxRows.toString();
+        adjusted = true;
+    }
+    if (currentTagLayout.rows < 1) {
+        currentTagLayout.rows = 1;
+        if (rowsInput) rowsInput.value = "1";
+        adjusted = true;
+    }
+
+    return adjusted;
+}
+
 function setupEventListeners() {
     // --- Global Actions ---
     document.getElementById('btn-save-project')?.addEventListener('click', async () => {
@@ -390,6 +473,16 @@ function setupEventListeners() {
     document.getElementById('btn-spreadsheet')?.addEventListener('click', openSpreadsheet);
     document.getElementById('btn-preview')?.addEventListener('click', openPreview);
     document.getElementById('btn-close-preview')?.addEventListener('click', closePreview);
+    document.getElementById('btn-print')?.addEventListener('click', () => {
+        const checkedEntries = currentEntries.filter(e => e.checked);
+        printEntries(checkedEntries);
+    });
+    document.getElementById('btn-quick-print')?.addEventListener('click', openQuickPrint);
+    document.getElementById('btn-close-quick-print')?.addEventListener('click', closeQuickPrint);
+    document.getElementById('btn-qp-cancel')?.addEventListener('click', closeQuickPrint);
+    document.getElementById('btn-qp-print-apply')?.addEventListener('click', applyAndPrintQuickEntries);
+    document.getElementById('btn-qp-add-row')?.addEventListener('click', addQuickPrintRow);
+    document.getElementById('btn-qp-del-row')?.addEventListener('click', deleteQuickPrintRow);
     document.getElementById('btn-prev-page')?.addEventListener('click', () => {
         if (previewCurrentPage > 0) {
             previewCurrentPage--;
@@ -468,8 +561,38 @@ function setupEventListeners() {
     document.getElementById('paper-preset')?.addEventListener('change', (e) => {
         const val = (e.target as HTMLSelectElement).value;
         currentPaperSize.name = val;
-        if (val === 'A4') { currentPaperSize.width_mm = 210; currentPaperSize.height_mm = 297; }
-        else if (val === 'A3') { currentPaperSize.width_mm = 297; currentPaperSize.height_mm = 420; }
+        
+        let w = 210;
+        let h = 297;
+        if (val === 'A3') { w = 297; h = 420; }
+        
+        const orientationSelect = document.getElementById('paper-orientation') as HTMLSelectElement;
+        const isLandscape = orientationSelect && orientationSelect.value === 'landscape';
+        
+        if (val !== 'Custom') {
+            if (isLandscape) {
+                currentPaperSize.width_mm = Math.max(w, h);
+                currentPaperSize.height_mm = Math.min(w, h);
+            } else {
+                currentPaperSize.width_mm = Math.min(w, h);
+                currentPaperSize.height_mm = Math.max(w, h);
+            }
+        }
+        updateUIFromState();
+        renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
+    });
+
+    document.getElementById('paper-orientation')?.addEventListener('change', (e) => {
+        const val = (e.target as HTMLSelectElement).value;
+        const w = currentPaperSize.width_mm;
+        const h = currentPaperSize.height_mm;
+        if (val === 'landscape' && w < h) {
+            currentPaperSize.width_mm = h;
+            currentPaperSize.height_mm = w;
+        } else if (val === 'portrait' && w > h) {
+            currentPaperSize.width_mm = h;
+            currentPaperSize.height_mm = w;
+        }
         updateUIFromState();
         renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
     });
@@ -477,11 +600,14 @@ function setupEventListeners() {
     ['paper-width', 'paper-height'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', (e) => {
             const val = parseFloat((e.target as HTMLInputElement).value);
+            if (isNaN(val)) return;
             const mmVal = unitMode === 'inch' ? inchToMm(val) : val;
             if (id === 'paper-width') currentPaperSize.width_mm = mmVal;
             else currentPaperSize.height_mm = mmVal;
             currentPaperSize.name = 'Custom';
             (document.getElementById('paper-preset') as HTMLSelectElement).value = 'Custom';
+            updateOrientationUI();
+            validateLayoutLimits();
             renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
         });
     });
@@ -495,15 +621,32 @@ function setupEventListeners() {
     };
     Object.keys(layoutKeyMap).forEach(id => {
         document.getElementById(id)?.addEventListener('input', (e) => {
-            const val = parseFloat((e.target as HTMLInputElement).value);
+            const rawVal = (e.target as HTMLInputElement).value;
+            if (rawVal === '') return;
+            const val = parseFloat(rawVal);
+            if (isNaN(val)) return;
             const actualKey = layoutKeyMap[id];
             if (id === 'cols' || id === 'rows') {
-                currentTagLayout[actualKey] = Math.floor(val);
+                validateLayoutLimits();
+                const colsInput = document.getElementById('cols') as HTMLInputElement;
+                const rowsInput = document.getElementById('rows') as HTMLInputElement;
+                const maxVal = id === 'cols' ? parseInt(colsInput.max || "999") : parseInt(rowsInput.max || "999");
+                const clamped = Math.min(maxVal, Math.max(1, Math.floor(val)));
+                currentTagLayout[actualKey] = clamped;
+                if (val !== clamped) {
+                    (e.target as HTMLInputElement).value = clamped.toString();
+                }
             } else {
                 currentTagLayout[actualKey] = unitMode === 'inch' ? inchToMm(val) : val;
+                validateLayoutLimits();
             }
             renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
         });
+    });
+
+    document.getElementById('show-cutting-lines')?.addEventListener('change', (e) => {
+        currentTagLayout.show_cutting_lines = (e.target as HTMLInputElement).checked;
+        renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
     });
 
     // --- TextBox Management ---
@@ -601,7 +744,18 @@ function updateSelectedTB(id: string, e: Event) {
     renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
 }
 
+function updateOrientationUI() {
+    const orientationSelect = document.getElementById('paper-orientation') as HTMLSelectElement;
+    if (!orientationSelect) return;
+    if (currentPaperSize.width_mm > currentPaperSize.height_mm) {
+        orientationSelect.value = 'landscape';
+    } else {
+        orientationSelect.value = 'portrait';
+    }
+}
+
 function updateUIFromState() {
+    validateLayoutLimits();
     const unitLabel = unitMode === 'inch' ? 'in' : 'mm';
     document.querySelectorAll('.unit-label').forEach(el => el.textContent = unitLabel);
 
@@ -611,6 +765,7 @@ function updateUIFromState() {
     (document.getElementById('paper-preset') as HTMLSelectElement).value = currentPaperSize.name;
     (document.getElementById('paper-width') as HTMLInputElement).value = formatVal(currentPaperSize.width_mm);
     (document.getElementById('paper-height') as HTMLInputElement).value = formatVal(currentPaperSize.height_mm);
+    updateOrientationUI();
 
     (document.getElementById('tag-width') as HTMLInputElement).value = formatVal(currentTagLayout.tag_width_mm);
     (document.getElementById('tag-height') as HTMLInputElement).value = formatVal(currentTagLayout.tag_height_mm);
@@ -620,6 +775,10 @@ function updateUIFromState() {
     (document.getElementById('offset-y') as HTMLInputElement).value = formatVal(currentTagLayout.offset_y_mm);
     (document.getElementById('gap-x') as HTMLInputElement).value = formatVal(currentTagLayout.gap_x_mm);
     (document.getElementById('gap-y') as HTMLInputElement).value = formatVal(currentTagLayout.gap_y_mm);
+    const cutCheckbox = document.getElementById('show-cutting-lines') as HTMLInputElement;
+    if (cutCheckbox) {
+        cutCheckbox.checked = !!currentTagLayout.show_cutting_lines;
+    }
 
     const listEl = document.getElementById('textbox-list') as HTMLSelectElement;
     listEl.innerHTML = '';
@@ -761,20 +920,82 @@ function handleSpreadsheetPaste(e: ClipboardEvent) {
     e.preventDefault();
     const text = e.clipboardData?.getData('text');
     if (!text) return;
-    const rows = text.split('\n').filter(r => r.trim() !== '').map(r => r.split('\t'));
+
+    // Normalize newlines and split into a 2D grid
+    const lines = text.replace(/\r\n/g, '\n').split('\n');
+    const rows = lines.filter(r => r.trim() !== '').map(r => r.split('\t'));
+    if (rows.length === 0) return;
+
     const body = document.getElementById('ss-body')!;
-    rows.forEach((row, rowIdx) => {
-        const tr = document.createElement('tr');
+    const targetInput = e.target as HTMLInputElement;
+    const isSpreadsheetInput = targetInput && 
+        targetInput.tagName === 'INPUT' && 
+        targetInput.type === 'text' && 
+        (targetInput.classList.contains('ss-common-input') || targetInput.closest('#spreadsheet-table') !== null);
+
+    if (isSpreadsheetInput) {
+        // If it's a single cell value, paste into the focused input at the cursor/selection position.
+        if (rows.length === 1 && rows[0].length === 1) {
+            const val = targetInput.value;
+            const start = targetInput.selectionStart ?? 0;
+            const end = targetInput.selectionEnd ?? 0;
+            const pastedText = rows[0][0];
+            targetInput.value = val.slice(0, start) + pastedText + val.slice(end);
+            targetInput.selectionStart = targetInput.selectionEnd = start + pastedText.length;
+            return;
+        }
+
+        // Multi-cell grid paste
+        const startCol = parseInt(targetInput.getAttribute('data-col') || '0');
+        const isCommon = targetInput.classList.contains('ss-common-input');
+
+        if (isCommon) {
+            // Paste values in the common row
+            const firstRow = rows[0];
+            firstRow.forEach((cellVal, cIdx) => {
+                const targetColIdx = startCol + cIdx;
+                const input = body.querySelector(`.ss-common-input[data-col="${targetColIdx}"]`) as HTMLInputElement;
+                if (input) {
+                    input.value = cellVal;
+                }
+            });
+        } else {
+            // Paste values in data rows, starting from the current row
+            const trParent = targetInput.closest('tr');
+            if (trParent) {
+                const startRow = parseInt(trParent.dataset.row || '0');
+                rows.forEach((row, rIdx) => {
+                    const targetRowIdx = startRow + rIdx;
+                    let tr = body.querySelector(`tr[data-row="${targetRowIdx}"]`);
+                    while (!tr) {
+                        addSpreadsheetRow();
+                        tr = body.querySelector(`tr[data-row="${targetRowIdx}"]`);
+                    }
+                    row.forEach((cellVal, cIdx) => {
+                        const targetColIdx = startCol + cIdx;
+                        const input = tr!.querySelector(`input[data-col="${targetColIdx}"]:not(.ss-common-input)`) as HTMLInputElement;
+                        if (input) {
+                            input.value = cellVal;
+                        }
+                    });
+                });
+            }
+        }
+    } else {
+        // Fallback: append rows at the end of the table
         const startIdx = Array.from(body.children).filter(el => !el.classList.contains('common-row')).length;
-        tr.dataset.row = (startIdx + rowIdx).toString();
-        let html = `<td><input type="checkbox" checked class="ss-row-check"></td>`;
-        html += `<td class="ss-row-num">${startIdx + rowIdx + 1}</td>`;
-        currentTagTemplate.text_boxes.forEach((_: any, colIdx: number) => {
-            html += `<td><input type="text" value="${row[colIdx] || ''}" data-col="${colIdx}"></td>`;
+        rows.forEach((row, rowIdx) => {
+            const tr = document.createElement('tr');
+            tr.dataset.row = (startIdx + rowIdx).toString();
+            let html = `<td><input type="checkbox" checked class="ss-row-check"></td>`;
+            html += `<td class="ss-row-num">${startIdx + rowIdx + 1}</td>`;
+            currentTagTemplate.text_boxes.forEach((_: any, colIdx: number) => {
+                html += `<td><input type="text" value="${row[colIdx] || ''}" data-col="${colIdx}"></td>`;
+            });
+            tr.innerHTML = html;
+            body.appendChild(tr);
         });
-        tr.innerHTML = html;
-        body.appendChild(tr);
-    });
+    }
 }
 
 function applySpreadsheet() {
@@ -848,121 +1069,279 @@ function closePreview() {
     document.getElementById('preview-modal')?.classList.add('hidden');
 }
 
-function renderPreviewPage() {
+function renderPageToCanvas(canvas: HTMLCanvasElement, pageIndex: number, scale: number, entriesToPrint: any[]): Promise<void> {
+    return new Promise((resolve) => {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            resolve();
+            return;
+        }
+
+        canvas.width = currentPaperSize.width_mm * scale;
+        canvas.height = currentPaperSize.height_mm * scale;
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const tagWPx = currentTagLayout.tag_width_mm * scale;
+        const tagHPx = currentTagLayout.tag_height_mm * scale;
+        const gapXPx = currentTagLayout.gap_x_mm * scale;
+        const gapYPx = currentTagLayout.gap_y_mm * scale;
+        const offXPx = currentTagLayout.offset_x_mm * scale;
+        const offYPx = currentTagLayout.offset_y_mm * scale;
+
+        const tagsPerPage = currentTagLayout.columns * currentTagLayout.rows;
+        const startIndex = pageIndex * tagsPerPage;
+
+        const drawContent = (bgImg: HTMLImageElement | null) => {
+            for (let pos = 0; pos < tagsPerPage; pos++) {
+                const entryIdx = startIndex + pos;
+                if (entryIdx >= entriesToPrint.length) break;
+
+                const entry = entriesToPrint[entryIdx];
+                const c = pos % currentTagLayout.columns;
+                const r = Math.floor(pos / currentTagLayout.columns);
+
+                const x = offXPx + c * (tagWPx + gapXPx);
+                const y = offYPx + r * (tagHPx + gapYPx);
+
+                if (bgImg) {
+                    ctx.drawImage(bgImg, x, y, tagWPx, tagHPx);
+                }
+
+                ctx.strokeStyle = "#cccccc";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x, y, tagWPx, tagHPx);
+
+                currentTagTemplate.text_boxes.forEach((tb: any, tbIdx: number) => {
+                    let text = "";
+                    if (commonValues && tbIdx < commonValues.length && commonValues[tbIdx]) {
+                        text = commonValues[tbIdx];
+                    } else {
+                        text = entry.values[tbIdx] || "";
+                    }
+                    if (!text) return;
+
+                    const tx = x + tb.x_mm * scale;
+                    const ty = y + tb.y_mm * scale;
+                    const tw = tb.width_mm * scale;
+                    const th = tb.height_mm * scale;
+
+                    ctx.fillStyle = tb.color || "#000000";
+
+                    let currentFontSizePx = tb.font_size * scale / 3;
+                    const fontFamily = tb.font_family || 'Arial';
+                    const fontPrefix = `${tb.bold ? 'bold ' : ''}${tb.italic ? 'italic ' : ''}`;
+                    const lineSpacing = tb.line_spacing || 1.2;
+                    const lines = text.split('\n');
+
+                    // --- Auto-scaling logic ---
+                    while (currentFontSizePx > 4) {
+                        ctx.font = `${fontPrefix}${currentFontSizePx}px "${fontFamily}"`;
+                        let maxW = 0;
+                        lines.forEach((line: string) => {
+                            const w = ctx.measureText(line).width;
+                            if (w > maxW) maxW = w;
+                        });
+
+                        const totalH = lines.length * currentFontSizePx * lineSpacing;
+
+                        if (maxW <= tw && totalH <= th) {
+                            break;
+                        }
+                        currentFontSizePx -= 0.5;
+                    }
+
+                    // Final application
+                    ctx.font = `${fontPrefix}${currentFontSizePx}px "${fontFamily}"`;
+
+                    ctx.textAlign = (tb.alignment || "center") as CanvasTextAlign;
+                    ctx.textBaseline = "middle";
+
+                    let textX = tx;
+                    if (tb.alignment === "center") textX += tw / 2;
+                    else if (tb.alignment === "right") textX += tw;
+
+                    const lineH = currentFontSizePx * lineSpacing;
+
+                    lines.forEach((line: string, lineIdx: number) => {
+                        const lineY = ty + th / 2 + (lineIdx - (lines.length - 1) / 2) * lineH;
+                        ctx.fillText(line, textX, lineY);
+                    });
+                });
+            }
+            resolve();
+        };
+
+        if (currentTagTemplate.background_image) {
+            const bgImg = new Image();
+            bgImg.src = `/local-file${currentTagTemplate.background_image}`;
+            bgImg.onload = () => drawContent(bgImg);
+            bgImg.onerror = () => drawContent(null);
+        } else {
+            drawContent(null);
+        }
+    });
+}
+
+async function renderPreviewPage() {
     const pageLabel = document.getElementById('preview-page-label');
     if (pageLabel) pageLabel.textContent = `${previewCurrentPage + 1} / ${previewTotalPages}`;
 
     const canvas = document.getElementById('print-preview-canvas') as HTMLCanvasElement;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
     const checkedEntries = currentEntries.filter(e => e.checked);
-    const tagsPerPage = currentTagLayout.columns * currentTagLayout.rows;
-    const startIndex = previewCurrentPage * tagsPerPage;
+    await renderPageToCanvas(canvas, previewCurrentPage, 2.5, checkedEntries);
+}
 
-    const scale = 2.5;
+// --- Printing Functions ---
+async function printEntries(entriesToPrint: any[]) {
+    if (!entriesToPrint || entriesToPrint.length === 0) {
+        showAlert(tr("선택된 데이터가 없습니다."));
+        return;
+    }
 
-    canvas.width = currentPaperSize.width_mm * scale;
-    canvas.height = currentPaperSize.height_mm * scale;
-
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const tagWPx = currentTagLayout.tag_width_mm * scale;
-    const tagHPx = currentTagLayout.tag_height_mm * scale;
-    const gapXPx = currentTagLayout.gap_x_mm * scale;
-    const gapYPx = currentTagLayout.gap_y_mm * scale;
-    const offXPx = currentTagLayout.offset_x_mm * scale;
-    const offYPx = currentTagLayout.offset_y_mm * scale;
-
-    const drawContent = (bgImg: HTMLImageElement | null) => {
-        for (let pos = 0; pos < tagsPerPage; pos++) {
-            const entryIdx = startIndex + pos;
-            if (entryIdx >= checkedEntries.length) break;
-
-            const entry = checkedEntries[entryIdx];
-            const c = pos % currentTagLayout.columns;
-            const r = Math.floor(pos / currentTagLayout.columns);
-
-            const x = offXPx + c * (tagWPx + gapXPx);
-            const y = offYPx + r * (tagHPx + gapYPx);
-
-            if (bgImg) {
-                ctx.drawImage(bgImg, x, y, tagWPx, tagHPx);
-            }
-
-            ctx.strokeStyle = "#cccccc";
-            ctx.lineWidth = 1;
-            ctx.strokeRect(x, y, tagWPx, tagHPx);
-
-            currentTagTemplate.text_boxes.forEach((tb: any, tbIdx: number) => {
-                let text = "";
-                if (commonValues && tbIdx < commonValues.length && commonValues[tbIdx]) {
-                    text = commonValues[tbIdx];
-                } else {
-                    text = entry.values[tbIdx] || "";
-                }
-                if (!text) return;
-
-                const tx = x + tb.x_mm * scale;
-                const ty = y + tb.y_mm * scale;
-                const tw = tb.width_mm * scale;
-                const th = tb.height_mm * scale;
-
-                ctx.fillStyle = tb.color || "#000000";
-
-                let currentFontSizePx = tb.font_size * scale / 3;
-                const fontFamily = tb.font_family || 'Arial';
-                const fontPrefix = `${tb.bold ? 'bold ' : ''}${tb.italic ? 'italic ' : ''}`;
-                const lineSpacing = tb.line_spacing || 1.2;
-                const lines = text.split('\n');
-
-                // --- Auto-scaling logic ---
-                while (currentFontSizePx > 4) {
-                    ctx.font = `${fontPrefix}${currentFontSizePx}px "${fontFamily}"`;
-                    let maxW = 0;
-                    lines.forEach((line: string) => {
-                        const w = ctx.measureText(line).width;
-                        if (w > maxW) maxW = w;
-                    });
-
-                    const totalH = lines.length * currentFontSizePx * lineSpacing;
-
-                    if (maxW <= tw && totalH <= th) {
-                        break;
-                    }
-                    currentFontSizePx -= 0.5;
-                }
-
-                // Final application
-                ctx.font = `${fontPrefix}${currentFontSizePx}px "${fontFamily}"`;
-
-                ctx.textAlign = (tb.alignment || "center") as CanvasTextAlign;
-                ctx.textBaseline = "middle";
-
-                let textX = tx;
-                if (tb.alignment === "center") textX += tw / 2;
-                else if (tb.alignment === "right") textX += tw;
-
-                const lineH = currentFontSizePx * lineSpacing;
-
-                lines.forEach((line: string, lineIdx: number) => {
-                    const lineY = ty + th / 2 + (lineIdx - (lines.length - 1) / 2) * lineH;
-                    ctx.fillText(line, textX, lineY);
-                });
-            });
-        }
+    const projectData: any = {
+        version: 1, 
+        paper: currentPaperSize, 
+        layout: currentTagLayout,
+        template: currentTagTemplate, 
+        entries: entriesToPrint, 
+        common_values: commonValues
     };
 
-    if (currentTagTemplate.background_image) {
-        const bgImg = new Image();
-        bgImg.src = `/local-file${currentTagTemplate.background_image}`;
-        bgImg.onload = () => drawContent(bgImg);
-        bgImg.onerror = () => drawContent(null);
-    } else {
-        drawContent(null);
+    try {
+        await PrintProject(projectData);
+    } catch (err) {
+        console.error("Print failed:", err);
+        showAlert("Print failed: " + err);
     }
+}
+
+// --- Quick Print Functions ---
+function openQuickPrint() {
+    document.getElementById('quick-print-modal')?.classList.remove('hidden');
+    populateQuickPrint();
+}
+
+function closeQuickPrint() {
+    document.getElementById('quick-print-modal')?.classList.add('hidden');
+}
+
+function populateQuickPrint() {
+    const headerRow = document.getElementById('qp-header-row')!;
+    const body = document.getElementById('qp-body')!;
+
+    // Header
+    headerRow.innerHTML = `<th style="width: 40px;">#</th>`;
+    currentTagTemplate.text_boxes.forEach((tb: any) => {
+        const th = document.createElement('th');
+        th.textContent = tb.label;
+        headerRow.appendChild(th);
+    });
+
+    body.innerHTML = '';
+    
+    // Add first empty row and focus its first input
+    addQuickPrintRow();
+    focusFirstQPInput();
+}
+
+function addQuickPrintRow() {
+    const body = document.getElementById('qp-body')!;
+    const tr = document.createElement('tr');
+    const rowIdx = body.children.length;
+    tr.dataset.row = rowIdx.toString();
+    
+    let html = `<td class="ss-row-num">${rowIdx + 1}</td>`;
+    currentTagTemplate.text_boxes.forEach((_: any, colIdx: number) => {
+        html += `<td><input type="text" value="" data-col="${colIdx}" class="qp-input"></td>`;
+    });
+    tr.innerHTML = html;
+    body.appendChild(tr);
+
+    setupQPInputRowListeners(tr);
+}
+
+function focusFirstQPInput() {
+    const firstInput = document.querySelector('#qp-body tr:first-child input.qp-input') as HTMLInputElement;
+    if (firstInput) {
+        firstInput.focus();
+    }
+}
+
+function setupQPInputRowListeners(tr: HTMLElement) {
+    const inputs = tr.querySelectorAll('input.qp-input');
+    inputs.forEach((input: any) => {
+        input.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Enter') {
+                const colIdx = parseInt(input.getAttribute('data-col') || '0');
+                const isLastCol = colIdx === currentTagTemplate.text_boxes.length - 1;
+                
+                const trParent = input.closest('tr');
+                const isLastRow = trParent && !trParent.nextElementSibling;
+
+                if (isLastCol && isLastRow) {
+                    e.preventDefault();
+                    addQuickPrintRow();
+                    const newTr = trParent.nextElementSibling as HTMLElement;
+                    if (newTr) {
+                        const nextInput = newTr.querySelector('input.qp-input') as HTMLInputElement;
+                        nextInput?.focus();
+                    }
+                }
+            }
+        });
+    });
+}
+
+function deleteQuickPrintRow() {
+    const body = document.getElementById('qp-body')!;
+    if (body.children.length > 1) {
+        body.removeChild(body.lastElementChild!);
+    }
+}
+
+async function applyAndPrintQuickEntries() {
+    const body = document.getElementById('qp-body')!;
+    const newEntriesToPrint: any[] = [];
+
+    Array.from(body.children).forEach(tr => {
+        const textInputs = Array.from(tr.querySelectorAll('input.qp-input')) as HTMLInputElement[];
+        const sortedInputs = textInputs.sort((a, b) => {
+            const colA = parseInt(a.getAttribute('data-col') || '0');
+            const colB = parseInt(b.getAttribute('data-col') || '0');
+            return colA - colB;
+        });
+        const values = sortedInputs.map(input => input.value.trim());
+        const hasValue = values.some(v => v !== '');
+
+        if (hasValue) {
+            newEntriesToPrint.push({
+                checked: true,
+                values: values
+            });
+        }
+    });
+
+    if (newEntriesToPrint.length === 0) {
+        showAlert(tr("선택된 데이터가 없습니다."));
+        return;
+    }
+
+    // Print only these new entries
+    await printEntries(newEntriesToPrint);
+
+    // Append these new entries to currentEntries
+    currentEntries.push(...newEntriesToPrint);
+
+    // Redraw main screen and preview if needed
+    renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
+
+    closeQuickPrint();
+
+    showAlert(`${newEntriesToPrint.length}건의 데이터가 인쇄 및 스프레드시트에 추가되었습니다.`);
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
