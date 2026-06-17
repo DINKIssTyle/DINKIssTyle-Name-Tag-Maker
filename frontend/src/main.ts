@@ -14,7 +14,6 @@ import {
     GetSystemFonts,
     ExportCSV,
     GetAppInfo,
-    PrintProject,
     ShowConfirm,
     AutoSaveProject,
     ResetCurrentProjectPath,
