@@ -1393,20 +1393,38 @@ async function printEntries(entriesToPrint: any[]) {
         return;
     }
 
-    const projectData: any = {
-        version: 1, 
-        paper: currentPaperSize, 
-        layout: currentTagLayout,
-        template: currentTagTemplate, 
-        entries: entriesToPrint, 
-        common_values: commonValues
-    };
+    const printSection = document.getElementById('print-section');
+    if (!printSection) {
+        showAlert("Print section not found");
+        return;
+    }
+
+    printSection.innerHTML = '';
+
+    const tagsPerPage = currentTagLayout.columns * currentTagLayout.rows;
+    const totalPages = Math.ceil(entriesToPrint.length / tagsPerPage);
+    const renderPromises: Promise<void>[] = [];
+    
+    const scale = 4.0; // High DPI print resolution scale
+
+    for (let i = 0; i < totalPages; i++) {
+        const canvas = document.createElement('canvas');
+        canvas.style.width = `${currentPaperSize.width_mm}mm`;
+        canvas.style.height = `${currentPaperSize.height_mm}mm`;
+        printSection.appendChild(canvas);
+
+        const promise = renderPageToCanvas(canvas, i, scale, entriesToPrint);
+        renderPromises.push(promise);
+    }
 
     try {
-        await PrintProject(projectData);
+        await Promise.all(renderPromises);
+        window.print();
     } catch (err) {
         console.error("Print failed:", err);
         showAlert("Print failed: " + err);
+    } finally {
+        printSection.innerHTML = '';
     }
 }
 

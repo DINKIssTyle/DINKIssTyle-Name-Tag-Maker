@@ -1,4 +1,27 @@
 .DS_Store
 **/.DS_Store
-build/bin
+Thumbs.db
+
+# Build Binaries
+build/bin/
+NameTagMaker
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Frontend / Node.js
+node_modules/
+frontend/node_modules/
 frontend/dist/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+.vite/
+
+# Go Development
+go.work
+
