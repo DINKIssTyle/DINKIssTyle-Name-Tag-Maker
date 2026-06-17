@@ -50,11 +50,23 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	// Cache system fonts on startup
+	// Cache system fonts on startup, filtering only those supported by gopdf
 	a.fontMap = make(map[string]string)
 	fonts := utils.FindSystemFonts()
+	
+	pdf := gopdf.GoPdf{}
+	pdf.Start(gopdf.Config{PageSize: *gopdf.PageSizeA4})
+	
 	for _, f := range fonts {
-		a.fontMap[f.Family] = f.Path
+		ext := strings.ToLower(filepath.Ext(f.Path))
+		if ext == ".ttc" || ext == ".otc" || ext == ".otf" {
+			continue
+		}
+		
+		err := pdf.AddTTFFont(f.Family, f.Path)
+		if err == nil {
+			a.fontMap[f.Family] = f.Path
+		}
 	}
 }
 
@@ -395,7 +407,6 @@ func drawPageGridLines(pdf *gopdf.GoPdf, data models.ProjectData) {
 
 func (a *App) buildPDF(filePath string, data models.ProjectData) error {
 	pdf := gopdf.GoPdf{}
-	nanumGothicAdded := false
 	mmToPt := 2.83464
 	pdf.Start(gopdf.Config{
 		PageSize: gopdf.Rect{
@@ -403,6 +414,8 @@ func (a *App) buildPDF(filePath string, data models.ProjectData) error {
 			H: data.Paper.HeightMM * mmToPt,
 		},
 	})
+
+	addedFonts := make(map[string]bool)
 
 	totalTagsPerPage := data.Layout.Columns * data.Layout.Rows
 	if totalTagsPerPage <= 0 {
@@ -554,13 +567,26 @@ func (a *App) buildPDF(filePath string, data models.ProjectData) error {
 
 			fontPath, ok := a.fontMap[fontFamily]
 			if !ok {
-				// Try case-insensitive lookup
+				cleanedRequest := cleanFontName(fontFamily)
+				// 1. Try case-insensitive clean match (stripping spaces, hyphens, etc.)
 				for f, p := range a.fontMap {
-					if strings.EqualFold(f, fontFamily) {
+					if cleanFontName(f) == cleanedRequest {
 						fontPath = p
 						fontName = f
 						ok = true
 						break
+					}
+				}
+				// 2. Try contains match (e.g. "NanumBarunGothic" matching "NanumBarunGothic Regular" or vice versa)
+				if !ok {
+					for f, p := range a.fontMap {
+						cleanedSystem := cleanFontName(f)
+						if strings.Contains(cleanedSystem, cleanedRequest) || strings.Contains(cleanedRequest, cleanedSystem) {
+							fontPath = p
+							fontName = f
+							ok = true
+							break
+						}
 					}
 				}
 			}
@@ -576,21 +602,31 @@ func (a *App) buildPDF(filePath string, data models.ProjectData) error {
 			var fontErr error
 			if useEmbeddedFallback {
 				fontName = "NanumGothic"
-				if !nanumGothicAdded {
+				if !addedFonts["NanumGothic"] {
 					fontErr = pdf.AddTTFFontData("NanumGothic", nanumGothicFont)
 					if fontErr == nil {
-						nanumGothicAdded = true
+						addedFonts["NanumGothic"] = true
+					} else {
+						fmt.Printf("[AddTTFFontData] Failed to load embedded NanumGothic: %v\n", fontErr)
 					}
 				}
 			} else {
-				fontErr = pdf.AddTTFFont(fontName, fontPath)
+				if !addedFonts[fontName] {
+					fontErr = pdf.AddTTFFont(fontName, fontPath)
+					if fontErr == nil {
+						addedFonts[fontName] = true
+					}
+				}
 				if fontErr != nil {
+					fmt.Printf("[AddTTFFont] Failed to load font '%s' from '%s': %v. Falling back to embedded NanumGothic...\n", fontName, fontPath, fontErr)
 					// If loading fails, use embedded NanumGothic as safety fallback
 					fontName = "NanumGothic"
-					if !nanumGothicAdded {
+					if !addedFonts["NanumGothic"] {
 						fontErr = pdf.AddTTFFontData("NanumGothic", nanumGothicFont)
 						if fontErr == nil {
-							nanumGothicAdded = true
+							addedFonts["NanumGothic"] = true
+						} else {
+							fmt.Printf("[AddTTFFontData] Failed to load fallback NanumGothic: %v\n", fontErr)
 						}
 					} else {
 						fontErr = nil // already added successfully in a previous loop iteration
