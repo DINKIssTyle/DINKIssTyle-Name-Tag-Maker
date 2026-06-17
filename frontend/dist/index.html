@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DKST Name Tag Maker</title>
     
-  <script type="module" crossorigin src="/assets/index.2a4e572f.js"></script>
-  <link rel="stylesheet" href="/assets/index.b473dab9.css">
+  <script type="module" crossorigin src="/assets/index.9e8ae297.js"></script>
+  <link rel="stylesheet" href="/assets/index.bde6f3c1.css">
 </head>
 
 <body>
@@ -15,34 +15,47 @@
         <header id="main-header">
             <div class="logo-space">DKST Name Tag Maker</div>
             <div class="actions">
-                <button id="btn-import-csv" class="icon-button icon-only-button" data-tooltip-key="CSV 가져오기" aria-label="CSV 가져오기">
+                <button id="btn-import-csv" class="icon-button icon-only-button" data-tooltip-key="CSV 가져오기"
+                    aria-label="CSV 가져오기">
                     <span class="material-symbols-outlined" aria-hidden="true">csv</span>
                 </button>
-                <button id="btn-spreadsheet" class="icon-button icon-only-button" data-tooltip-key="스프레드시트" aria-label="스프레드시트">
+                <button id="btn-spreadsheet" class="icon-button icon-only-button" data-tooltip-key="스프레드시트"
+                    aria-label="스프레드시트">
                     <span class="material-symbols-outlined" aria-hidden="true">table_edit</span>
                 </button>
-                <button id="btn-select-bg" class="icon-button icon-only-button" data-tooltip-key="배경 이미지" aria-label="배경 이미지">
+                <button id="btn-select-bg" class="icon-button icon-only-button" data-tooltip-key="배경 이미지"
+                    aria-label="배경 이미지">
                     <span class="material-symbols-outlined" aria-hidden="true">wallpaper</span>
                 </button>
-                <button id="btn-clear-bg" class="icon-button icon-only-button" data-tooltip-key="배경 지우기" aria-label="배경 지우기">
+                <button id="btn-clear-bg" class="icon-button icon-only-button" data-tooltip-key="배경 지우기"
+                    aria-label="배경 지우기">
                     <span class="material-symbols-outlined" aria-hidden="true">clear_all</span>
                 </button>
-                <button id="btn-load-project" class="icon-button icon-only-button" data-tooltip-key="프로젝트 열기" aria-label="프로젝트 열기">
+                <button id="btn-new-project" class="icon-button icon-only-button" data-tooltip-key="새 프로젝트"
+                    aria-label="새 프로젝트">
+                    <span class="material-symbols-outlined" aria-hidden="true">note_add</span>
+                </button>
+                <button id="btn-load-project" class="icon-button icon-only-button" data-tooltip-key="프로젝트 열기"
+                    aria-label="프로젝트 열기">
                     <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
                 </button>
-                <button id="btn-save-project" class="icon-button icon-only-button" data-tooltip-key="프로젝트 저장" aria-label="프로젝트 저장">
+                <button id="btn-save-project" class="icon-button icon-only-button" data-tooltip-key="프로젝트 저장"
+                    aria-label="프로젝트 저장">
                     <span class="material-symbols-outlined" aria-hidden="true">save</span>
                 </button>
                 <button id="btn-preview" class="icon-button icon-only-button" data-tooltip-key="미리보기" aria-label="미리보기">
                     <span class="material-symbols-outlined" aria-hidden="true">preview</span>
                 </button>
-                <button id="btn-save-pdf" class="btn-primary icon-button icon-only-button" data-tooltip-key="PDF 저장" aria-label="PDF 저장">
+                <button id="btn-save-pdf" class="icon-button icon-only-button" data-tooltip-key="PDF 저장"
+                    aria-label="PDF 저장">
                     <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
                 </button>
-                <button id="btn-print" class="btn-success icon-button icon-only-button" data-tooltip-key="인쇄" aria-label="인쇄">
+                <button id="btn-print" class="btn-success icon-button icon-only-button" data-tooltip-key="인쇄"
+                    aria-label="인쇄">
                     <span class="material-symbols-outlined" aria-hidden="true">print</span>
                 </button>
-                <button id="btn-quick-print" class="icon-button icon-only-button quick-print-btn" data-tooltip-key="빠른 입력 인쇄" aria-label="빠른 입력 인쇄">
+                <button id="btn-quick-print" class="icon-button icon-only-button quick-print-btn"
+                    data-tooltip-key="빠른 입력 인쇄" aria-label="빠른 입력 인쇄">
                     <span class="material-symbols-outlined" aria-hidden="true">bolt</span>
                 </button>
             </div>
@@ -53,7 +66,8 @@
                     <option value="en">English (영어)</option>
                 </select>
             </div>
-            <button id="btn-about" class="icon-button icon-only-button" style="margin-left: 10px;" data-tooltip-key="정보" aria-label="정보">
+            <button id="btn-about" class="icon-button icon-only-button" style="margin-left: 10px;" data-tooltip-key="정보"
+                aria-label="정보">
                 <span class="material-symbols-outlined" aria-hidden="true">info</span>
             </button>
         </header>
@@ -208,7 +222,8 @@
             <main id="preview-area" style="position: relative;">
                 <canvas id="preview-canvas"></canvas>
                 <div class="zoom-controls">
-                    <button id="btn-zoom-fit" class="icon-button icon-only-button" data-tooltip-key="Fit" aria-label="맞춤">
+                    <button id="btn-zoom-fit" class="icon-button icon-only-button" data-tooltip-key="Fit"
+                        aria-label="맞춤">
                         <span class="material-symbols-outlined" aria-hidden="true">fit_screen</span>
                     </button>
                     <button id="btn-zoom-out">-</button>
@@ -251,7 +266,8 @@
 
                     <div style="margin-left: auto; display: flex; align-items: center; gap: 4px;">
                         <span class="material-symbols-outlined" style="font-size: 18px; color: #808080;">search</span>
-                        <input type="text" id="ss-search-input" placeholder="검색..." style="width: 150px; height: 26px; padding: 2px 6px; border-radius: 4px; background: #2b2b2b; border: 1px solid #1a1a1a; color: white; font-size: 12px;">
+                        <input type="text" id="ss-search-input" placeholder="검색..."
+                            style="width: 150px; height: 26px; padding: 2px 6px; border-radius: 4px; background: #2b2b2b; border: 1px solid #1a1a1a; color: white; font-size: 12px;">
                     </div>
                 </div>
                 <div class="table-container">
@@ -323,7 +339,8 @@
                     <h3 style="margin: 0 0 10px 0; padding: 0; font-size: 1.2em;">DKST Name Tag Maker</h3>
                     <p style="margin: 5px 0; color: #ccc;">Version <span id="about-version">1.0</span> (<span
                             id="about-build-date"></span>)</p>
-                    <p style="margin: 5px 0; font-size: 0.85em; color: #888;">2026 (C) DINKI'ssTyle</p>
+                    <p style="margin: 5px 0; font-size: 0.85em; color: #888;"><span
+                            id="about-copyright-year">2026</span> (C) DINKI'ssTyle</p>
                 </div>
             </div>
         </div>

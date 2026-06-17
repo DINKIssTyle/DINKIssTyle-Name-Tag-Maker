@@ -31,6 +31,9 @@ import (
 //go:embed res/NanumGothic-Regular.ttf
 var nanumGothicFont []byte
 
+//go:embed app.config
+var defaultAppConfig []byte
+
 // App struct
 type App struct {
 	ctx                context.Context
@@ -79,8 +82,32 @@ func (a *App) GetAppInfo() map[string]string {
 	buildDate := "2026-02-27"
 	copyrightYear := "2026"
 
-	// Read app.config from the root directory
-	data, err := os.ReadFile("app.config")
+	var data []byte
+	var err error
+
+	// 1. Try reading from the current working directory
+	data, err = os.ReadFile("app.config")
+
+	// 2. If not found, try reading from next to the executable
+	if err != nil {
+		if exePath, exeErr := os.Executable(); exeErr == nil {
+			exeDir := filepath.Dir(exePath)
+			data, err = os.ReadFile(filepath.Join(exeDir, "app.config"))
+
+			// 3. On macOS, if running from inside an .app bundle, check next to the .app bundle (3 levels up)
+			if err != nil && stdruntime.GOOS == "darwin" && strings.Contains(exeDir, ".app/Contents/MacOS") {
+				bundleParentDir := filepath.Dir(filepath.Dir(filepath.Dir(exeDir)))
+				data, err = os.ReadFile(filepath.Join(bundleParentDir, "app.config"))
+			}
+		}
+	}
+
+	// 4. Fallback to embedded defaultAppConfig if external file is missing or failed
+	if err != nil {
+		data = defaultAppConfig
+		err = nil
+	}
+
 	if err == nil {
 		lines := strings.Split(string(data), "\n")
 		for _, line := range lines {

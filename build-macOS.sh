@@ -9,6 +9,10 @@ echo "======================================"
 wails build -platform darwin/universal -clean -o "DKST Name Tag Maker"
 
 if [ $? -eq 0 ]; then
+    cp app.config "build/bin/app.config"
+    if [ -d "build/bin/DKST Name Tag Maker.app/Contents/MacOS" ]; then
+        cp app.config "build/bin/DKST Name Tag Maker.app/Contents/MacOS/app.config"
+    fi
     echo "======================================"
     echo "  macOS 빌드가 성공적으로 완료되었습니다!"
     echo "  결과물은 build/bin 폴더를 확인해주세요."

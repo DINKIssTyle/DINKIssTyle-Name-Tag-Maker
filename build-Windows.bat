@@ -9,6 +9,7 @@ REM clean 옵션과 함께 윈도우 amd64 바이너리 빌드 수행
 wails build -platform windows/amd64 -clean -o "DKST Name Tag Maker.exe"
 
 if %ERRORLEVEL% EQU 0 (
+    copy /y app.config "build\bin\app.config"
     echo ======================================
     echo   Windows 빌드가 성공적으로 완료되었습니다!
     echo   결과물은 build/bin 폴더를 확인해주세요.

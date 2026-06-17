@@ -9,6 +9,7 @@ echo "======================================"
 wails build -platform linux/amd64 -clean -o "DKST Name Tag Maker"
 
 if [ $? -eq 0 ]; then
+    cp app.config "build/bin/app.config"
     echo "======================================"
     echo "  Ubuntu 빌드가 성공적으로 완료되었습니다!"
     echo "  결과물은 build/bin 폴더를 확인해주세요."
