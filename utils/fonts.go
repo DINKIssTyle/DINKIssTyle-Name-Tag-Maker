@@ -55,7 +55,7 @@ func FindSystemFonts() []FontInfo {
 			}
 
 			ext := strings.ToLower(filepath.Ext(path))
-			if ext == ".ttf" || ext == ".otf" || ext == ".ttc" {
+			if ext == ".ttf" || ext == ".otf" {
 				family := strings.TrimSuffix(filepath.Base(path), ext)
 
 				// Basic cleaning for presentation

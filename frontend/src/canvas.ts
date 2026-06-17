@@ -316,7 +316,62 @@ export class PreviewRenderer {
 
         // Background Image
         if (this.bgImage) {
-            this.ctx.drawImage(this.bgImage, x, y, tagWPx, tagHPx);
+            const bgMode = this.tagTemplate.background_image_mode || 'stretch';
+            if (bgMode === 'stretch') {
+                this.ctx.drawImage(this.bgImage, x, y, tagWPx, tagHPx);
+            } else {
+                const imgW = this.bgImage.naturalWidth;
+                const imgH = this.bgImage.naturalHeight;
+                if (imgW > 0 && imgH > 0) {
+                    const imgAspect = imgW / imgH;
+                    const tagAspect = tagWPx / tagHPx;
+                    
+                    let drawX = x;
+                    let drawY = y;
+                    let drawW = tagWPx;
+                    let drawH = tagHPx;
+                    
+                    if (bgMode === 'fit') {
+                        if (imgAspect > tagAspect) {
+                            drawW = tagWPx;
+                            drawH = tagWPx / imgAspect;
+                            drawX = x;
+                            drawY = y + (tagHPx - drawH) / 2;
+                        } else {
+                            drawH = tagHPx;
+                            drawW = tagHPx * imgAspect;
+                            drawX = x + (tagWPx - drawW) / 2;
+                            drawY = y;
+                        }
+                    } else if (bgMode === 'cover') {
+                        if (imgAspect > tagAspect) {
+                            drawH = tagHPx;
+                            drawW = tagHPx * imgAspect;
+                            drawX = x + (tagWPx - drawW) / 2;
+                            drawY = y;
+                        } else {
+                            drawW = tagWPx;
+                            drawH = tagWPx / imgAspect;
+                            drawX = x;
+                            drawY = y + (tagHPx - drawH) / 2;
+                        }
+                    }
+                    
+                    if (bgMode === 'cover') {
+                        // Clip to tag boundary
+                        this.ctx.save();
+                        this.ctx.beginPath();
+                        this.ctx.rect(x, y, tagWPx, tagHPx);
+                        this.ctx.clip();
+                        this.ctx.drawImage(this.bgImage, drawX, drawY, drawW, drawH);
+                        this.ctx.restore();
+                    } else {
+                        this.ctx.drawImage(this.bgImage, drawX, drawY, drawW, drawH);
+                    }
+                } else {
+                    this.ctx.drawImage(this.bgImage, x, y, tagWPx, tagHPx);
+                }
+            }
         }
 
         // Draw Tag Outline

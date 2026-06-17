@@ -40,8 +40,9 @@ func DefaultTextBox() TextBox {
 
 // TagTemplate 네임태그 템플릿
 type TagTemplate struct {
-	BackgroundImage string    `json:"background_image,omitempty"`
-	TextBoxes       []TextBox `json:"text_boxes"`
+	BackgroundImage     string    `json:"background_image,omitempty"`
+	BackgroundImageMode string    `json:"background_image_mode,omitempty"`
+	TextBoxes           []TextBox `json:"text_boxes"`
 }
 
 func (t *TagTemplate) AddTextBox(label string) TextBox {

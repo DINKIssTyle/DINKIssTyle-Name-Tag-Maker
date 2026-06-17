@@ -25,6 +25,9 @@
                 <button id="btn-clear-bg" class="icon-button icon-only-button" data-tooltip-key="배경 지우기" aria-label="배경 지우기">
                     <span class="material-symbols-outlined" aria-hidden="true">clear_all</span>
                 </button>
+                <button id="btn-new-project" class="icon-button icon-only-button" data-tooltip-key="새 프로젝트" aria-label="새 프로젝트">
+                    <span class="material-symbols-outlined" aria-hidden="true">note_add</span>
+                </button>
                 <button id="btn-load-project" class="icon-button icon-only-button" data-tooltip-key="프로젝트 열기" aria-label="프로젝트 열기">
                     <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
                 </button>
@@ -37,7 +40,7 @@
                 <button id="btn-save-pdf" class="btn-primary icon-button icon-only-button" data-tooltip-key="PDF 저장" aria-label="PDF 저장">
                     <span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span>
                 </button>
-                <button id="btn-print" class="icon-button icon-only-button" data-tooltip-key="인쇄" aria-label="인쇄">
+                <button id="btn-print" class="btn-success icon-button icon-only-button" data-tooltip-key="인쇄" aria-label="인쇄">
                     <span class="material-symbols-outlined" aria-hidden="true">print</span>
                 </button>
                 <button id="btn-quick-print" class="icon-button icon-only-button quick-print-btn" data-tooltip-key="빠른 입력 인쇄" aria-label="빠른 입력 인쇄">
@@ -122,6 +125,14 @@
                         <label class="prop-label" data-t="Y:">Y:</label>
                         <input type="number" id="gap-y" value="0.0" step="0.1">
                         <span class="unit">mm</span>
+
+                        <!-- 배경 이미지 채우기 방식 설정 -->
+                        <label class="prop-label" data-t="배경 조절:">배경 조절:</label>
+                        <select id="bg-resize-mode" class="span-5">
+                            <option value="stretch" data-t="비율 무시하고 채우기">비율 무시하고 채우기 (Stretch)</option>
+                            <option value="fit" data-t="비율 유지하며 맞춤">비율 유지하며 맞춤 (Fit)</option>
+                            <option value="cover" data-t="비율 유지하며 채우기">비율 유지하며 채우기 (Cover)</option>
+                        </select>
 
                         <!-- 칼선 설정 -->
                         <label class="prop-label" data-t="칼선 인쇄:">칼선 인쇄:</label>
@@ -224,7 +235,7 @@
                     </button>
                     <button id="btn-ss-del-row" class="icon-button">
                         <span class="material-symbols-outlined" aria-hidden="true">variable_remove</span>
-                        <span data-t="- 행 삭제">- 행 삭제</span>
+                        <span data-t="선택한 행 삭제">선택한 행 삭제</span>
                     </button>
                     <button id="btn-ss-export" class="icon-button">
                         <span class="material-symbols-outlined" aria-hidden="true">ios_share</span>
@@ -238,6 +249,11 @@
                         <span class="material-symbols-outlined" aria-hidden="true">deselect</span>
                         <span data-t="전체 해제">전체 해제</span>
                     </button>
+
+                    <div style="margin-left: auto; display: flex; align-items: center; gap: 4px;">
+                        <span class="material-symbols-outlined" style="font-size: 18px; color: #808080;">search</span>
+                        <input type="text" id="ss-search-input" placeholder="검색..." style="width: 150px; height: 26px; padding: 2px 6px; border-radius: 4px; background: #2b2b2b; border: 1px solid #1a1a1a; color: white; font-size: 12px;">
+                    </div>
                 </div>
                 <div class="table-container">
                     <table id="spreadsheet-table">

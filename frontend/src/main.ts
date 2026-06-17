@@ -14,7 +14,11 @@ import {
     GetSystemFonts,
     ExportCSV,
     GetAppInfo,
-    PrintProject
+    PrintProject,
+    ShowConfirm,
+    AutoSaveProject,
+    ResetCurrentProjectPath,
+    ShowNewProjectConfirm
 } from '../wailsjs/go/main/App';
 import { PreviewRenderer } from './canvas';
 import { LogInfo } from '../wailsjs/runtime/runtime';
@@ -64,6 +68,7 @@ const translations: any = {
         "SS_HINT": "엑셀이나 구글 시트에서 데이터를 복사(Ctrl+C)한 후, 아래 표에 붙여넣기(Ctrl+V) 하세요.",
         "+ 행 추가": "행 추가",
         "- 행 삭제": "행 삭제",
+        "선택한 행 삭제": "선택한 행 삭제",
         "CSV 내보내기": "CSV 내보내기",
         "체크": "체크",
         "◀ 이전": "◀ 이전",
@@ -81,7 +86,15 @@ const translations: any = {
         "세로 (Portrait)": "세로 (Portrait)",
         "가로 (Landscape)": "가로 (Landscape)",
         "칼선 인쇄:": "칼선 인쇄:",
-        "인쇄 시 칼선 출력": "인쇄 시 칼선 출력"
+        "인쇄 시 칼선 출력": "인쇄 시 칼선 출력",
+        "정말 배경 이미지를 지우시겠습니까?": "정말 배경 이미지를 지우시겠습니까?",
+        "배경 조절:": "배경 조절:",
+        "비율 무시하고 채우기": "비율 무시하고 채우기 (Stretch)",
+        "비율 유지하며 맞춤": "비율 유지하며 맞춤 (Fit)",
+        "비율 유지하며 채우기": "비율 유지하며 채우기 (Cover)",
+        "새 프로젝트": "새 프로젝트",
+        "저장되지 않은 변경 사항이 있습니다. 저장하시겠습니까?": "저장되지 않은 변경 사항이 있습니다. 저장하시겠습니까?",
+        "새 프로젝트가 생성되었습니다.": "새 프로젝트가 생성되었습니다."
     },
     en: {
         "CSV 가져오기": "Import CSV",
@@ -127,6 +140,7 @@ const translations: any = {
         "SS_HINT": "Copy data from Excel or Google Sheets (Ctrl+C) and paste it into the table below (Ctrl+V).",
         "+ 행 추가": "Add Row",
         "- 행 삭제": "Delete Row",
+        "선택한 행 삭제": "Delete Selected Rows",
         "CSV 내보내기": "Export CSV",
         "체크": "Check",
         "◀ 이전": "◀ Prev",
@@ -145,7 +159,15 @@ const translations: any = {
         "세로 (Portrait)": "Portrait",
         "가로 (Landscape)": "Landscape",
         "칼선 인쇄:": "Cut Lines:",
-        "인쇄 시 칼선 출력": "Print Cutting Lines"
+        "인쇄 시 칼선 출력": "Print Cutting Lines",
+        "정말 배경 이미지를 지우시겠습니까?": "Are you sure you want to clear the background image?",
+        "배경 조절:": "BG Mode:",
+        "비율 무시하고 채우기": "Stretch to Fill",
+        "비율 유지하며 맞춤": "Fit (Contain)",
+        "비율 유지하며 채우기": "Cover (Crop)",
+        "새 프로젝트": "New Project",
+        "저장되지 않은 변경 사항이 있습니다. 저장하시겠습니까?": "You have unsaved changes. Do you want to save them?",
+        "새 프로젝트가 생성되었습니다.": "New project created."
     }
 };
 
@@ -204,6 +226,96 @@ let unitMode: 'mm' | 'inch' = 'mm';
 
 const inchToMm = (inch: number) => inch * 25.4;
 
+async function triggerAutoSave() {
+    const projectData: any = {
+        version: 1, 
+        paper: currentPaperSize, 
+        layout: currentTagLayout,
+        template: currentTagTemplate, 
+        entries: currentEntries, 
+        common_values: commonValues
+    };
+    try {
+        await AutoSaveProject(projectData);
+        updateSavedStateSnapshot();
+    } catch (e) {
+        console.error("Auto-save failed:", e);
+    }
+}
+
+let lastSavedStateJSON = "";
+
+function getCurrentStateJSON() {
+    const projectData = {
+        paper: currentPaperSize,
+        layout: currentTagLayout,
+        template: currentTagTemplate,
+        entries: currentEntries,
+        common_values: commonValues
+    };
+    return JSON.stringify(projectData);
+}
+
+function updateSavedStateSnapshot() {
+    lastSavedStateJSON = getCurrentStateJSON();
+}
+
+function isDirty() {
+    return getCurrentStateJSON() !== lastSavedStateJSON;
+}
+
+async function resetToNewProject() {
+    currentPaperSize = await GetDefaultPaperSize();
+    currentTagLayout = await GetDefaultTagLayout();
+    currentTagTemplate = await GetDefaultTagTemplate();
+    currentEntries = [];
+    commonValues = [];
+    selectedTBIndex = -1;
+    
+    await ResetCurrentProjectPath();
+    
+    updateUIFromState();
+    renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
+    updateSavedStateSnapshot();
+}
+
+async function handleNewProject() {
+    if (isDirty()) {
+        const title = tr("새 프로젝트");
+        const msg = tr("저장되지 않은 변경 사항이 있습니다. 저장하시겠습니까?");
+        const saveLabel = currentLang === 'ko' ? '저장' : 'Save';
+        const discardLabel = currentLang === 'ko' ? '저장 안 함' : 'Don\'t Save';
+        const cancelLabel = currentLang === 'ko' ? '취소' : 'Cancel';
+
+        const choice = await ShowNewProjectConfirm(title, msg, saveLabel, discardLabel, cancelLabel);
+        if (choice === saveLabel) {
+            const projectData: any = {
+                version: 1, 
+                paper: currentPaperSize, 
+                layout: currentTagLayout,
+                template: currentTagTemplate, 
+                entries: currentEntries, 
+                common_values: commonValues
+            };
+            try {
+                const path = await SaveProject(projectData);
+                if (!path) {
+                    return; // Aborted by user cancelling save dialog
+                }
+                updateSavedStateSnapshot();
+            } catch (e) {
+                console.error("Save failed:", e);
+                return; // Abort on error
+            }
+        } else if (choice === cancelLabel || !choice) {
+            return; // Cancelled
+        }
+    }
+
+    await resetToNewProject();
+    showAlert(tr("새 프로젝트가 생성되었습니다."));
+}
+
 async function initApp() {
     try {
         currentPaperSize = await GetDefaultPaperSize();
@@ -231,7 +343,7 @@ async function initApp() {
         translateUI();
 
         renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
-
+        updateSavedStateSnapshot();
     } catch (e) {
         console.error("Failed to initialize app:", e);
     }
@@ -395,6 +507,8 @@ function validateLayoutLimits(): boolean {
 
 function setupEventListeners() {
     // --- Global Actions ---
+    document.getElementById('btn-new-project')?.addEventListener('click', handleNewProject);
+
     document.getElementById('btn-save-project')?.addEventListener('click', async () => {
         const projectData: any = {
             version: 1, paper: currentPaperSize, layout: currentTagLayout,
@@ -402,7 +516,10 @@ function setupEventListeners() {
         };
         try {
             const path = await SaveProject(projectData);
-            if (path) console.log("Project saved to:", path);
+            if (path) {
+                console.log("Project saved to:", path);
+                updateSavedStateSnapshot();
+            }
         } catch (e) { console.error("Save failed:", e); }
     });
 
@@ -441,6 +558,7 @@ function setupEventListeners() {
                 commonValues = data.common_values;
                 updateUIFromState();
                 renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
+                updateSavedStateSnapshot();
             }
         } catch (e) { console.error("Load failed:", e); }
     });
@@ -451,6 +569,7 @@ function setupEventListeners() {
             if (result && result.data) {
                 currentEntries = result.data.map((row: string[]) => ({ checked: true, values: row }));
                 showAlert(`CSV 데이터 ${currentEntries.length}건을 가져왔습니다.`);
+                triggerAutoSave();
             }
         } catch (e) { console.error("CSV Import failed:", e); }
     });
@@ -551,10 +670,18 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('btn-clear-bg')?.addEventListener('click', () => {
-        currentTagTemplate.background_image = "";
-        updateUIFromState();
-        renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
+    document.getElementById('btn-clear-bg')?.addEventListener('click', async () => {
+        const title = tr("배경 지우기");
+        const msg = tr("정말 배경 이미지를 지우시겠습니까?");
+        const yesLabel = currentLang === 'ko' ? '예' : 'Yes';
+        const noLabel = currentLang === 'ko' ? '아니오' : 'No';
+        
+        const confirmed = await ShowConfirm(title, msg, yesLabel, noLabel);
+        if (confirmed) {
+            currentTagTemplate.background_image = "";
+            updateUIFromState();
+            renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
+        }
     });
 
     // --- Paper Settings ---
@@ -646,6 +773,11 @@ function setupEventListeners() {
 
     document.getElementById('show-cutting-lines')?.addEventListener('change', (e) => {
         currentTagLayout.show_cutting_lines = (e.target as HTMLInputElement).checked;
+        renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
+    });
+
+    document.getElementById('bg-resize-mode')?.addEventListener('change', (e) => {
+        currentTagTemplate.background_image_mode = (e.target as HTMLSelectElement).value;
         renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
     });
 
@@ -780,6 +912,11 @@ function updateUIFromState() {
         cutCheckbox.checked = !!currentTagLayout.show_cutting_lines;
     }
 
+    const bgResizeSelect = document.getElementById('bg-resize-mode') as HTMLSelectElement;
+    if (bgResizeSelect) {
+        bgResizeSelect.value = currentTagTemplate.background_image_mode || 'stretch';
+    }
+
     const listEl = document.getElementById('textbox-list') as HTMLSelectElement;
     listEl.innerHTML = '';
     currentTagTemplate.text_boxes.forEach((tb: any, i: number) => {
@@ -819,6 +956,10 @@ function loadTextBoxProps(tb: any) {
 // --- Spreadsheet Functions ---
 function openSpreadsheet() {
     document.getElementById('spreadsheet-modal')?.classList.remove('hidden');
+    const searchInput = document.getElementById('ss-search-input') as HTMLInputElement;
+    if (searchInput) {
+        searchInput.value = '';
+    }
     populateSpreadsheet();
 }
 
@@ -866,17 +1007,22 @@ function populateSpreadsheet() {
 
     if (currentEntries.length === 0) addSpreadsheetRow();
     setupSpreadsheetListeners();
+
+    const searchInput = document.getElementById('ss-search-input') as HTMLInputElement;
+    if (searchInput && searchInput.value) {
+        filterSpreadsheet(searchInput.value);
+    }
 }
 
 function setupSpreadsheetListeners() {
     document.getElementById('btn-close-spreadsheet')?.addEventListener('click', closeSpreadsheet);
     document.getElementById('btn-ss-cancel')?.addEventListener('click', closeSpreadsheet);
-    document.getElementById('btn-ss-apply')?.addEventListener('click', () => { applySpreadsheet(); closeSpreadsheet(); renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate); });
+    document.getElementById('btn-ss-apply')?.addEventListener('click', () => { applySpreadsheet(); closeSpreadsheet(); renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate); triggerAutoSave(); });
 
     const addBtn = document.getElementById('btn-ss-add-row');
     if (addBtn) addBtn.onclick = addSpreadsheetRow;
     const delBtn = document.getElementById('btn-ss-del-row');
-    if (delBtn) delBtn.onclick = deleteSpreadsheetRow;
+    if (delBtn) delBtn.onclick = deleteSelectedSpreadsheetRows;
 
     document.getElementById('btn-ss-export')?.addEventListener('click', async () => {
         applySpreadsheet();
@@ -889,9 +1035,33 @@ function setupSpreadsheetListeners() {
     });
 
     const selectAll = document.getElementById('btn-ss-select-all');
-    if (selectAll) selectAll.onclick = () => document.querySelectorAll('.ss-row-check').forEach((el: any) => el.checked = true);
+    if (selectAll) {
+        selectAll.onclick = () => {
+            document.querySelectorAll('#ss-body tr:not(.common-row)').forEach((tr: any) => {
+                if (tr.style.display !== 'none') {
+                    const checkbox = tr.querySelector('.ss-row-check') as HTMLInputElement;
+                    if (checkbox) checkbox.checked = true;
+                }
+            });
+        };
+    }
     const clearAll = document.getElementById('btn-ss-clear-all');
-    if (clearAll) clearAll.onclick = () => document.querySelectorAll('.ss-row-check').forEach((el: any) => el.checked = false);
+    if (clearAll) {
+        clearAll.onclick = () => {
+            document.querySelectorAll('#ss-body tr:not(.common-row)').forEach((tr: any) => {
+                if (tr.style.display !== 'none') {
+                    const checkbox = tr.querySelector('.ss-row-check') as HTMLInputElement;
+                    if (checkbox) checkbox.checked = false;
+                }
+            });
+        };
+    }
+
+    const searchInput = document.getElementById('ss-search-input') as HTMLInputElement;
+    searchInput?.addEventListener('input', (e) => {
+        const query = (e.target as HTMLInputElement).value;
+        filterSpreadsheet(query);
+    });
 
     const ssTable = document.getElementById('spreadsheet-table');
     if (ssTable) ssTable.onpaste = (e: any) => handleSpreadsheetPaste(e);
@@ -911,9 +1081,29 @@ function addSpreadsheetRow() {
     body.appendChild(tr);
 }
 
-function deleteSpreadsheetRow() {
-    const body = document.getElementById('ss-body')!;
-    if (body.lastElementChild) body.removeChild(body.lastElementChild);
+function deleteSelectedSpreadsheetRows() {
+    applySpreadsheet();
+    currentEntries = currentEntries.filter(entry => !entry.checked);
+    populateSpreadsheet();
+    triggerAutoSave();
+}
+
+function filterSpreadsheet(query: string) {
+    const term = query.toLowerCase().trim();
+    const rows = document.querySelectorAll('#ss-body tr:not(.common-row)');
+    rows.forEach((tr: any) => {
+        if (!term) {
+            tr.style.display = '';
+            return;
+        }
+        const inputs = Array.from(tr.querySelectorAll('input[type="text"]')) as HTMLInputElement[];
+        const match = inputs.some(input => input.value.toLowerCase().includes(term));
+        if (match) {
+            tr.style.display = '';
+        } else {
+            tr.style.display = 'none';
+        }
+    });
 }
 
 function handleSpreadsheetPaste(e: ClipboardEvent) {
@@ -1340,6 +1530,8 @@ async function applyAndPrintQuickEntries() {
     renderer.updateData(currentPaperSize, currentTagLayout, currentTagTemplate);
 
     closeQuickPrint();
+
+    await triggerAutoSave();
 
     showAlert(`${newEntriesToPrint.length}건의 데이터가 인쇄 및 스프레드시트에 추가되었습니다.`);
 }

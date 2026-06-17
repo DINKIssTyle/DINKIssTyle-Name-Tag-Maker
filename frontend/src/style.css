@@ -125,6 +125,15 @@ body {
     background: #0086f0;
 }
 
+.actions button.btn-success {
+    background: #28a745;
+    border-color: #1e7e34;
+}
+
+.actions button.btn-success:hover {
+    background: #218838;
+}
+
 .actions button.quick-print-btn {
     background-color: #ff3b30 !important;
     border-color: #e0241b !important;

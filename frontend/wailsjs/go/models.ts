@@ -82,6 +82,7 @@ export namespace models {
 	}
 	export class TagTemplate {
 	    background_image?: string;
+	    background_image_mode?: string;
 	    text_boxes: TextBox[];
 	
 	    static createFrom(source: any = {}) {
@@ -91,6 +92,7 @@ export namespace models {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.background_image = source["background_image"];
+	        this.background_image_mode = source["background_image_mode"];
 	        this.text_boxes = this.convertValues(source["text_boxes"], TextBox);
 	    }
 	

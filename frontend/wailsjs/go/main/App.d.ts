@@ -3,6 +3,8 @@
 import {models} from '../models';
 import {utils} from '../models';
 
+export function AutoSaveProject(arg1:models.ProjectData):Promise<void>;
+
 export function ExportCSV(arg1:Array<string>,arg2:Array<any>):Promise<string>;
 
 export function GetAppInfo():Promise<Record<string, string>>;
@@ -23,8 +25,14 @@ export function Print():Promise<void>;
 
 export function PrintProject(arg1:models.ProjectData):Promise<void>;
 
+export function ResetCurrentProjectPath():Promise<void>;
+
 export function SavePDF(arg1:models.ProjectData):Promise<string>;
 
 export function SaveProject(arg1:models.ProjectData):Promise<string>;
 
 export function SelectBackgroundImage():Promise<string>;
+
+export function ShowConfirm(arg1:string,arg2:string,arg3:string,arg4:string):Promise<boolean>;
+
+export function ShowNewProjectConfirm(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<string>;

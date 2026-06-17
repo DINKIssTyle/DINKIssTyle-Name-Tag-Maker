@@ -17,14 +17,25 @@ import (
 	"NameTagMaker/models"
 	"NameTagMaker/utils"
 
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+
 	"github.com/signintech/gopdf"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	_ "embed"
+	stdruntime "runtime"
 )
+
+//go:embed res/NanumGothic-Regular.ttf
+var nanumGothicFont []byte
 
 // App struct
 type App struct {
-	ctx     context.Context
-	fontMap map[string]string // Family Name -> File Path
+	ctx                context.Context
+	fontMap            map[string]string // Family Name -> File Path
+	currentProjectPath string            // Path of the loaded/saved project
 }
 
 // NewApp creates a new App application struct
@@ -90,6 +101,9 @@ func (a *App) SaveProject(data models.ProjectData) (string, error) {
 	}
 
 	err = os.WriteFile(filePath, jsonData, 0644)
+	if err == nil {
+		a.currentProjectPath = filePath
+	}
 	return filePath, err
 }
 
@@ -111,7 +125,23 @@ func (a *App) LoadProject() (*models.ProjectData, error) {
 
 	var data models.ProjectData
 	err = json.Unmarshal(fileData, &data)
+	if err == nil {
+		a.currentProjectPath = filePath
+	}
 	return &data, err
+}
+
+func (a *App) AutoSaveProject(data models.ProjectData) error {
+	if a.currentProjectPath == "" {
+		return nil // No active project path, skip auto-save silently
+	}
+
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(a.currentProjectPath, jsonData, 0644)
 }
 
 // --- Data Import/Export ---
@@ -209,6 +239,80 @@ func hexToRGBA(hex string) color.RGBA {
 	return color.RGBA{0, 0, 0, 255}
 }
 
+func getImageDimensions(filePath string) (float64, float64, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer file.Close()
+
+	imgConfig, _, err := image.DecodeConfig(file)
+	if err != nil {
+		return 0, 0, err
+	}
+	return float64(imgConfig.Width), float64(imgConfig.Height), nil
+}
+
+func hasKorean(s string) bool {
+	for _, r := range s {
+		if (r >= 0xAC00 && r <= 0xD7A3) || (r >= 0x1100 && r <= 0x11FF) || (r >= 0x3130 && r <= 0x318F) {
+			return true
+		}
+	}
+	return false
+}
+
+func cleanFontName(name string) string {
+	s := strings.ToLower(name)
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "-", "")
+	s = strings.ReplaceAll(s, "_", "")
+	return s
+}
+
+func (a *App) getKoreanFallbackFont() (string, string) {
+	// Preferred Korean font families by OS
+	var preferred []string
+	switch stdruntime.GOOS {
+	case "darwin":
+		preferred = []string{"Apple SD Gothic Neo", "AppleGothic"}
+	case "windows":
+		preferred = []string{"Malgun Gothic", "Gulim", "Dotum", "Batang"}
+	case "linux":
+		preferred = []string{"Noto Sans CJK KR", "Noto Sans KR", "NanumGothic", "NanumBarunGothic", "UnDotum"}
+	default:
+		preferred = []string{"Apple SD Gothic Neo", "Malgun Gothic", "NanumGothic"}
+	}
+
+	for _, name := range preferred {
+		cleanedPreferred := cleanFontName(name)
+		if path, ok := a.fontMap[name]; ok {
+			return name, path
+		}
+		// Try lookup with cleaned names
+		for f, p := range a.fontMap {
+			if cleanFontName(f) == cleanedPreferred || strings.Contains(cleanFontName(f), cleanedPreferred) || strings.Contains(cleanedPreferred, cleanFontName(f)) {
+				return f, p
+			}
+		}
+	}
+
+	// Fallback to any font that might have "gothic", "nanum", "noto", "malgun", or "apple" in it
+	for f, p := range a.fontMap {
+		lf := strings.ToLower(f)
+		if strings.Contains(lf, "gothic") || strings.Contains(lf, "nanum") || strings.Contains(lf, "noto") || strings.Contains(lf, "malgun") || strings.Contains(lf, "apple") {
+			return f, p
+		}
+	}
+
+	// If absolutely nothing is found, return the first font in the map if it exists
+	for f, p := range a.fontMap {
+		return f, p
+	}
+
+	return "Arial", ""
+}
+
 func drawPageGridLines(pdf *gopdf.GoPdf, data models.ProjectData) {
 	mmToPt := 2.83464
 	pdf.SetLineWidth(0.5)
@@ -233,6 +337,7 @@ func drawPageGridLines(pdf *gopdf.GoPdf, data models.ProjectData) {
 
 func (a *App) buildPDF(filePath string, data models.ProjectData) error {
 	pdf := gopdf.GoPdf{}
+	nanumGothicAdded := false
 	mmToPt := 2.83464
 	pdf.Start(gopdf.Config{
 		PageSize: gopdf.Rect{
@@ -266,10 +371,78 @@ func (a *App) buildPDF(filePath string, data models.ProjectData) error {
 		tagY := data.Layout.OffsetYMM + float64(row)*(data.Layout.TagHeightMM+data.Layout.GapYMM)
 
 		if data.Template.BackgroundImage != "" {
-			_ = pdf.Image(data.Template.BackgroundImage, tagX*mmToPt, tagY*mmToPt, &gopdf.Rect{
-				W: data.Layout.TagWidthMM * mmToPt,
-				H: data.Layout.TagHeightMM * mmToPt,
-			})
+			bgMode := data.Template.BackgroundImageMode
+			if bgMode == "" {
+				bgMode = "stretch"
+			}
+
+			tagW := data.Layout.TagWidthMM
+			tagH := data.Layout.TagHeightMM
+
+			imgX := tagX
+			imgY := tagY
+			imgW := tagW
+			imgH := tagH
+
+			if bgMode == "fit" || bgMode == "cover" {
+				imgPixelW, imgPixelH, err := getImageDimensions(data.Template.BackgroundImage)
+				if err == nil && imgPixelW > 0 && imgPixelH > 0 {
+					imgAspect := imgPixelW / imgPixelH
+					tagAspect := tagW / tagH
+
+					if bgMode == "fit" {
+						if imgAspect > tagAspect {
+							// fit width
+							imgW = tagW
+							imgH = tagW / imgAspect
+							imgX = tagX
+							imgY = tagY + (tagH-imgH)/2
+						} else {
+							// fit height
+							imgH = tagH
+							imgW = tagH * imgAspect
+							imgX = tagX + (tagW-imgW)/2
+							imgY = tagY
+						}
+					} else if bgMode == "cover" {
+						if imgAspect > tagAspect {
+							// cover height, overflow width
+							imgH = tagH
+							imgW = tagH * imgAspect
+							imgX = tagX + (tagW-imgW)/2
+							imgY = tagY
+						} else {
+							// cover width, overflow height
+							imgW = tagW
+							imgH = tagW / imgAspect
+							imgX = tagX
+							imgY = tagY + (tagH-imgH)/2
+						}
+					}
+				}
+			}
+
+			if bgMode == "cover" {
+				// Clip to tag boundary
+				points := []gopdf.Point{
+					{X: tagX * mmToPt, Y: tagY * mmToPt},
+					{X: (tagX + tagW) * mmToPt, Y: tagY * mmToPt},
+					{X: (tagX + tagW) * mmToPt, Y: (tagY + tagH) * mmToPt},
+					{X: tagX * mmToPt, Y: (tagY + tagH) * mmToPt},
+				}
+				pdf.SaveGraphicsState()
+				pdf.ClipPolygon(points)
+				_ = pdf.Image(data.Template.BackgroundImage, imgX*mmToPt, imgY*mmToPt, &gopdf.Rect{
+					W: imgW * mmToPt,
+					H: imgH * mmToPt,
+				})
+				pdf.RestoreGraphicsState()
+			} else {
+				_ = pdf.Image(data.Template.BackgroundImage, imgX*mmToPt, imgY*mmToPt, &gopdf.Rect{
+					W: imgW * mmToPt,
+					H: imgH * mmToPt,
+				})
+			}
 		}
 
 		// Draw cutting lines (칼선) - 0.5pt light gray border on top of the image
@@ -279,17 +452,28 @@ func (a *App) buildPDF(filePath string, data models.ProjectData) error {
 			pdf.Rectangle(tagX*mmToPt, tagY*mmToPt, (tagX+data.Layout.TagWidthMM)*mmToPt, (tagY+data.Layout.TagHeightMM)*mmToPt, "D", 0, 0)
 		}
 
-		for _, tb := range data.Template.TextBoxes {
+		for tbIdx, tb := range data.Template.TextBoxes {
 			text := tb.Label
-			for valIdx, val := range entry.Values {
-				placeholder := fmt.Sprintf("{%d}", valIdx+1)
-				text = strings.ReplaceAll(text, placeholder, val)
-			}
-			// Apply common values if placeholders remain
-			for valIdx, val := range data.CommonValues {
-				placeholder := fmt.Sprintf("{%d}", valIdx+1)
-				if strings.Contains(text, placeholder) && val != "" {
+			if strings.Contains(text, "{") {
+				for valIdx, val := range entry.Values {
+					placeholder := fmt.Sprintf("{%d}", valIdx+1)
 					text = strings.ReplaceAll(text, placeholder, val)
+				}
+				// Apply common values if placeholders remain
+				for valIdx, val := range data.CommonValues {
+					placeholder := fmt.Sprintf("{%d}", valIdx+1)
+					if strings.Contains(text, placeholder) && val != "" {
+						text = strings.ReplaceAll(text, placeholder, val)
+					}
+				}
+			} else {
+				// Direct mapping by index (matching frontend preview behavior)
+				if tbIdx < len(entry.Values) && entry.Values[tbIdx] != "" {
+					text = entry.Values[tbIdx]
+				} else if tbIdx < len(data.CommonValues) && data.CommonValues[tbIdx] != "" {
+					text = data.CommonValues[tbIdx]
+				} else {
+					text = ""
 				}
 			}
 
@@ -317,42 +501,100 @@ func (a *App) buildPDF(filePath string, data models.ProjectData) error {
 					if strings.EqualFold(f, fontFamily) {
 						fontPath = p
 						fontName = f
+						ok = true
 						break
 					}
 				}
 			}
 
-			if fontPath != "" {
-				err := pdf.AddTTFFont(fontName, fontPath)
-				if err != nil {
-					fontName = "Arial" // fallback
+			// CJK/Standard Font Fallback Logic:
+			// If text contains Korean characters and the requested font is a standard non-CJK font (like "Arial"),
+			// or if the font file cannot be found in the system, or if it's a TrueType Collection (.ttc) file
+			// (which gopdf doesn't support), we fallback to our embedded NanumGothic-Regular.ttf.
+			isStandardNonCJK := fontFamily == "Arial" || fontFamily == "Helvetica" || fontFamily == "Courier" || fontFamily == "Times"
+			isTTC := strings.HasSuffix(strings.ToLower(fontPath), ".ttc") || strings.HasSuffix(strings.ToLower(fontPath), ".otc")
+			useEmbeddedFallback := (isStandardNonCJK && hasKorean(text)) || fontPath == "" || isTTC
+
+			var fontErr error
+			if useEmbeddedFallback {
+				fontName = "NanumGothic"
+				if !nanumGothicAdded {
+					fontErr = pdf.AddTTFFontData("NanumGothic", nanumGothicFont)
+					if fontErr == nil {
+						nanumGothicAdded = true
+					}
 				}
 			} else {
-				fontName = "Arial" // fallback
+				fontErr = pdf.AddTTFFont(fontName, fontPath)
+				if fontErr != nil {
+					// If loading fails, use embedded NanumGothic as safety fallback
+					fontName = "NanumGothic"
+					if !nanumGothicAdded {
+						fontErr = pdf.AddTTFFontData("NanumGothic", nanumGothicFont)
+						if fontErr == nil {
+							nanumGothicAdded = true
+						}
+					} else {
+						fontErr = nil // already added successfully in a previous loop iteration
+					}
+				}
 			}
 
-			_ = pdf.SetFont(fontName, "", fontSize)
+			// Only render if a font was successfully loaded. If everything failed (which shouldn't
+			// happen with embedded fallback), skip measuring/drawing to prevent panics.
+			if fontErr == nil {
+				boxWPx := tb.WidthMM * mmToPt
+				boxHPx := tb.HeightMM * mmToPt
 
-			tw, _ := pdf.MeasureTextWidth(text)
+				// Split text into lines to support auto-scaling and multiline drawing
+				lines := strings.Split(text, "\n")
+				lineSpacing := tb.LineSpacing
+				if lineSpacing <= 0 {
+					lineSpacing = 1.2
+				}
 
-			posX := (tagX + tb.XMM) * mmToPt
-			posY := (tagY + tb.YMM) * mmToPt
-			boxWPx := tb.WidthMM * mmToPt
-			boxHPx := tb.HeightMM * mmToPt
+				// Font size auto-scaling loop (matches frontend Canvas logic)
+				for fontSize > 4.0 {
+					_ = pdf.SetFont(fontName, "", fontSize)
 
-			// Alignment
-			switch tb.Alignment {
-			case "center":
-				posX += (boxWPx - tw) / 2
-			case "right":
-				posX += (boxWPx - tw)
+					maxW := 0.0
+					for _, line := range lines {
+						w, _ := pdf.MeasureTextWidth(line)
+						if w > maxW {
+							maxW = w
+						}
+					}
+
+					totalH := float64(len(lines)) * fontSize * lineSpacing
+
+					if maxW <= boxWPx && totalH <= boxHPx {
+						break
+					}
+					fontSize -= 0.5
+				}
+
+				// Final set of corrected font size
+				_ = pdf.SetFont(fontName, "", fontSize)
+				lineH := fontSize * lineSpacing
+
+				// Render each line individually
+				for lineIdx, line := range lines {
+					lineOffsetY := (float64(lineIdx) - float64(len(lines)-1)/2.0) * lineH
+					lineY := (tagY+tb.YMM)*mmToPt + boxHPx/2.0 + lineOffsetY + (fontSize * 0.35)
+
+					tw, _ := pdf.MeasureTextWidth(line)
+					posX := (tagX + tb.XMM) * mmToPt
+					switch tb.Alignment {
+					case "center":
+						posX += (boxWPx - tw) / 2.0
+					case "right":
+						posX += (boxWPx - tw)
+					}
+
+					pdf.SetXY(posX, lineY)
+					_ = pdf.Text(line)
+				}
 			}
-
-			// Center vertically within the box height (approximate)
-			posY += (boxHPx + fontSize*0.8) / 2
-
-			pdf.SetXY(posX, posY)
-			_ = pdf.Text(text)
 		}
 	}
 
@@ -387,5 +629,42 @@ func (a *App) PrintProject(data models.ProjectData) error {
 	}
 	PrintPDF(tempFile)
 	return nil
+}
+
+// ShowConfirm displays a native question dialog with custom yes/no button labels
+func (a *App) ShowConfirm(title, message, yesLabel, noLabel string) (bool, error) {
+	selection, err := runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
+		Type:          runtime.QuestionDialog,
+		Title:         title,
+		Message:       message,
+		Buttons:       []string{yesLabel, noLabel},
+		DefaultButton: yesLabel,
+		CancelButton:  noLabel,
+	})
+	if err != nil {
+		return false, err
+	}
+	return selection == yesLabel, nil
+}
+
+// ResetCurrentProjectPath clears the active project path when a new project is created
+func (a *App) ResetCurrentProjectPath() {
+	a.currentProjectPath = ""
+}
+
+// ShowNewProjectConfirm displays a native dialog for New Project confirmation (Save/Don't Save/Cancel)
+func (a *App) ShowNewProjectConfirm(title, message, saveLabel, discardLabel, cancelLabel string) (string, error) {
+	selection, err := runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
+		Type:          runtime.QuestionDialog,
+		Title:         title,
+		Message:       message,
+		Buttons:       []string{saveLabel, discardLabel, cancelLabel},
+		DefaultButton: saveLabel,
+		CancelButton:  cancelLabel,
+	})
+	if err != nil {
+		return "", err
+	}
+	return selection, nil
 }
 
